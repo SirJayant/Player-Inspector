@@ -1,0 +1,4 @@
+aiohttp
+streamlit
+pandas
+dotenv
