@@ -363,11 +363,10 @@ with st.sidebar:
 if app_mode == "🕵️ Player Inspector":
     st.subheader("🕵️ Player Inspector")
 
-    col1, col2 = st.columns([3, 1])
+    # FIXED: vertical_alignment locks button to bottom of input box
+    col1, col2 = st.columns([3, 1], vertical_alignment="bottom")
     with col1: target_tag = st.text_input("Enter Player Tag:", key="target_player_tag", placeholder="#QYJ89QR")
-    with col2:
-        st.write(""); st.write("")
-        inspect_btn = st.button("Inspect Player", width="stretch", type="primary")
+    with col2: inspect_btn = st.button("Inspect Player", use_container_width=True, type="primary")
 
     if (inspect_btn or st.session_state.trigger_fetch) and target_tag:
         st.session_state.trigger_fetch = False
@@ -384,7 +383,7 @@ if app_mode == "🕵️ Player Inspector":
 
             if profile.get("clan"):
                 st.info(f"🔰 **Clan Detected:** {profile['clan']['name']} ({profile['clan']['tag']})")
-                st.button("Run Audit on this Clan", width="stretch", on_click=jump_to_clan, args=(profile['clan']['tag'],))
+                st.button("Run Audit on this Clan", use_container_width=True, on_click=jump_to_clan, args=(profile['clan']['tag'],))
 
             st.markdown("#### 🏛️ Account Overview")
             t1_c1, t1_c2, t1_c3, t1_c4, t1_c5 = st.columns(5)
@@ -414,10 +413,7 @@ if app_mode == "🕵️ Player Inspector":
 
             st.divider()
             
-            # --- OFFENSIVE ARMY LINKS SECTION ---
             st.markdown("#### ⚔️ Detected Offensive Armies")
-            
-            # Check if they match completely
             if ranked_code and unranked_code and (ranked_code == unranked_code):
                 st.toast("One-trick pony alert! 🦄")
                 st.info("😏 **Note:** This player runs the exact same strategy in Ranked matches and casual multiplayer. Consistency or lack of creativity? You decide.")
@@ -441,7 +437,6 @@ if app_mode == "🕵️ Player Inspector":
 
             st.divider()
 
-            # --- DEFENSIVE BATTLE LOG SECTION ---
             st.markdown("#### 🛡️ Recent Ranked/Legend Defenses")
             if is_maintenance:
                 st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break.")
@@ -456,12 +451,10 @@ if app_mode == "🕵️ Player Inspector":
                     st.dataframe(df_defenses, column_config={"Army Link": st.column_config.LinkColumn("Copy Army", display_text="🔗 Copy"), "Tag": st.column_config.TextColumn("Player Tag")}, use_container_width=True, hide_index=True)
                     
                     st.markdown("##### 🔎 Investigate Opponent")
-                    col_tgt1, col_tgt2 = st.columns([3, 1])
-                    with col_tgt1:
-                        target_opp = st.selectbox("Select opponent tag to inspect:", df_defenses["Tag"].unique())
-                    with col_tgt2:
-                        st.write(""); st.write("")
-                        st.button("Inspect Profile", on_click=jump_to_player, args=(target_opp,), use_container_width=True)
+                    # FIXED: vertical_alignment
+                    col_tgt1, col_tgt2 = st.columns([3, 1], vertical_alignment="bottom")
+                    with col_tgt1: target_opp = st.selectbox("Select opponent tag to inspect:", df_defenses["Tag"].unique())
+                    with col_tgt2: st.button("Inspect Profile", on_click=jump_to_player, args=(target_opp,), use_container_width=True)
                 else:
                     st.warning("No 3-star defenses found in the current logs.")
             elif not is_maintenance:
@@ -471,7 +464,7 @@ if app_mode == "🕵️ Player Inspector":
 
             if not eq_df.empty:
                 st.write("### 🔨 Hero Equipment Loadout")
-                st.dataframe(eq_df, width="stretch", hide_index=True)
+                st.dataframe(eq_df, use_container_width=True, hide_index=True)
 
 # ------------------------------------------
 # MODULE 2: CLAN & Raid Auditor
@@ -479,12 +472,11 @@ if app_mode == "🕵️ Player Inspector":
 elif app_mode == "🏰 Clan & Raid Auditor":
     st.subheader("🏰 Clan & Raid Auditor")
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # FIXED: vertical_alignment
+    col1, col2, col3 = st.columns([1, 2, 1], vertical_alignment="bottom")
     with col1: input_type = st.selectbox("Search By:", ["Clan Tag", "Player Tag"])
     with col2: target_tag = st.text_input("Enter Tag:", key="target_clan_tag", placeholder="#2RV082C9Y")
-    with col3:
-        st.write(""); st.write("")
-        audit_btn = st.button("Run Audit", width="stretch", type="primary")
+    with col3: audit_btn = st.button("Run Audit", use_container_width=True, type="primary")
 
     if (audit_btn or st.session_state.trigger_fetch) and target_tag:
         st.session_state.trigger_fetch = False
@@ -504,25 +496,24 @@ elif app_mode == "🏰 Clan & Raid Auditor":
             role_map = {"admin": "Elder", "coLeader": "Co-Leader", "leader": "Leader", "member": "Member"}
             member_dict = {f"{m['name']} ({m['tag']}) - {role_map.get(m['role'], m['role'])}": m['tag'] for m in clan.get("memberList", [])}
 
-            col_sel, col_btn = st.columns([3, 1])
+            # FIXED: vertical_alignment
+            col_sel, col_btn = st.columns([3, 1], vertical_alignment="bottom")
             with col_sel: selected_member = st.selectbox("Select a Clan Member to investigate:", options=list(member_dict.keys()))
-            with col_btn:
-                st.write(""); st.write("")
-                st.button("Inspect Profile", width="stretch", on_click=jump_to_player, args=(member_dict[selected_member],))
+            with col_btn: st.button("Inspect Profile", use_container_width=True, on_click=jump_to_player, args=(member_dict[selected_member],))
             st.divider()
 
             tab1, tab2, tab3, tab4 = st.tabs(["🚨 Slacker Report", "🛡️ Full Raid Roster", "⚔️ Recent War Log", "🎯 Ping-A-Donor"])
             
             with tab1:
-                if not slacker_df.empty: st.dataframe(slacker_df.style.highlight_max(subset=["Violation"], color="#5c2b2b"), width="stretch", hide_index=True)
+                if not slacker_df.empty: st.dataframe(slacker_df.style.highlight_max(subset=["Violation"], color="#5c2b2b"), use_container_width=True, hide_index=True)
                 else: st.write("✨ Incredible! Every single clan member showed up and finished their attacks.")
             
             with tab2:
-                if not roster_df.empty: st.dataframe(roster_df, width="stretch", hide_index=True)
+                if not roster_df.empty: st.dataframe(roster_df, use_container_width=True, hide_index=True)
                 else: st.write("No Raid data found.")
             
             with tab3:
-                if not war_df.empty: st.dataframe(war_df, width="stretch", hide_index=True)
+                if not war_df.empty: st.dataframe(war_df, use_container_width=True, hide_index=True)
                 else: st.write("War log is private or empty.")
             
             with tab4:
@@ -531,12 +522,11 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                 st.markdown(f"### 🎯 Ping-A-Donor")
                 st.caption(f"**Clan Level {clan_lvl}** | Active Donation Boost: **+{boost} Levels**")
                 
-                req_col1, req_col2, req_col3 = st.columns([2, 1, 1])
+                # FIXED: vertical_alignment
+                req_col1, req_col2, req_col3 = st.columns([2, 1, 1], vertical_alignment="bottom")
                 with req_col1: unit_name = st.selectbox("Select Unit to Request:", options=clan_units if clan_units else ["No units found"])
                 with req_col2: desired_lvl = st.number_input("Minimum Level:", min_value=1, value=1, step=1)
-                with req_col3: 
-                    st.write(""); st.write("")
-                    is_max = st.checkbox("🔥 I just want MAX", value=False)
+                with req_col3: is_max = st.checkbox("🔥 I just want MAX", value=False)
                 
                 if st.button("Search Donors", type="secondary"):
                     if unit_name and unit_name != "No units found":
@@ -547,7 +537,7 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                             
                             if not df_donors.empty:
                                 st.success(f"Found {len(df_donors)} members who can donate your requested {unit_name}!")
-                                st.dataframe(df_donors, width="stretch", hide_index=True)
+                                st.dataframe(df_donors, use_container_width=True, hide_index=True)
                             else:
                                 st.warning(f"Nobody in the clan can donate that level of {unit_name}. Time to recruit better players.")
                     else:
