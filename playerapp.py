@@ -53,6 +53,12 @@ async def fetch_api(session, endpoint, headers):
         if response.status == 200: return await response.json(), None
         return None, f"HTTP {response.status}"
 
+async def fetch_player_profile(session, tag, headers):
+    url = f"{BASE_URL}/players/{format_tag(tag)}"
+    async with session.get(url, headers=headers) as response:
+        if response.status == 200: return await response.json()
+        return None
+
 # ==========================================
 #         CORE LOGIC ENGINES
 # ==========================================
@@ -126,116 +132,4 @@ async def process_clan_auditor(tag, input_type, token):
                 for m_tag, p in raid_map.items():
                     roster_rows.append({"Player": p["name"], "Tag": m_tag, "Attacks": p["attacks"], "Max Possible": p["attackLimit"] + p["bonusAttackLimit"], "Gold": p["capitalResourcesLooted"]})
 
-        slacker_df = pd.DataFrame(slacker_rows).sort_values(by=["Attacks Used", "Gold"]) if slacker_rows else pd.DataFrame()
-        roster_df = pd.DataFrame(roster_rows).sort_values(by="Gold", ascending=False) if roster_rows else pd.DataFrame()
-        return clan_data, slacker_df, roster_df, war_df, None
-
-# ==========================================
-#         GUI RENDERER (STREAMLIT)
-# ==========================================
-st.title("🛡️ CoC Operations Master Suite")
-
-with st.sidebar:
-    st.header("⚙️ Configuration")
-    app_mode = st.radio("Select Module:", ["🕵️ Player Inspector", "🏰 Clan & Raid Auditor"], key="app_mode")
-
-# ------------------------------------------
-# MODULE 1: PLAYER INSPECTOR
-# ------------------------------------------
-if app_mode == "🕵️ Player Inspector":
-    st.subheader("🕵️ Player Inspector")
-
-    col1, col2 = st.columns([3, 1])
-    with col1: target_tag = st.text_input("Enter Player Tag:", key="target_player_tag", placeholder="#QYJ89QR")
-    with col2:
-        st.write(""); st.write("")
-        inspect_btn = st.button("Inspect Player", width="stretch", type="primary")
-
-    if (inspect_btn or st.session_state.trigger_fetch) and target_tag:
-        st.session_state.trigger_fetch = False
-        with st.spinner("Infiltrating Supercell Servers..."):
-            st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN))
-
-    if st.session_state.scanned_player:
-        profile, eq_df, army_url, error = st.session_state.scanned_player
-
-        if error:
-            st.error(error)
-        else:
-            st.success(f"Successfully located {profile.get('name')}!")
-
-            if profile.get("clan"):
-                st.info(f"🔰 **Clan Detected:** {profile['clan']['name']} ({profile['clan']['tag']})")
-                st.button(
-                    "Run Audit on this Clan",
-                    width="stretch",
-                    on_click=jump_to_clan,
-                    args=(profile['clan']['tag'],)
-                )
-
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Town Hall", profile.get("townHallLevel"))
-            c2.metric("Trophies", profile.get("trophies"))
-            c3.metric("Clan", profile.get("clan", {}).get("name", "None"))
-
-            if army_url: st.info(f"⚔️ **Most Used Army Detected!** [Click here to copy to game]({army_url})")
-            else: st.warning("No recent offensive army data found.")
-
-            if not eq_df.empty:
-                st.write("### Hero Equipment Loadout")
-                st.dataframe(eq_df, width="stretch", hide_index=True)
-            else: st.write("No Hero Equipment found.")
-
-# ------------------------------------------
-# MODULE 2: CLAN & Raid Auditor
-# ------------------------------------------
-elif app_mode == "🏰 Clan & Raid Auditor":
-    st.subheader("🏰 Clan & Raid Auditor")
-
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col1: input_type = st.selectbox("Search By:", ["Clan Tag", "Player Tag"])
-    with col2: target_tag = st.text_input("Enter Tag:", key="target_clan_tag", placeholder="#2RV082C9Y")
-    with col3:
-        st.write(""); st.write("")
-        audit_btn = st.button("Run Audit", width="stretch", type="primary")
-
-    if (audit_btn or st.session_state.trigger_fetch) and target_tag:
-        st.session_state.trigger_fetch = False
-        with st.spinner("Compiling Ledgers..."):
-            st.session_state.scanned_clan = asyncio.run(process_clan_auditor(target_tag, input_type, COC_TOKEN))
-
-    if st.session_state.scanned_clan:
-        clan, slacker_df, roster_df, war_df, error = st.session_state.scanned_clan
-
-        if error:
-            st.error(error)
-        else:
-            st.success(f"Audit Complete for Clan: {clan.get('name')}")
-
-            st.divider()
-            st.markdown("### 🔍 Quick Member Inspector")
-            role_map = {"admin": "Elder", "coLeader": "Co-Leader", "leader": "Leader", "member": "Member"}
-            member_dict = {f"{m['name']} ({m['tag']}) - {role_map.get(m['role'], m['role'])}": m['tag'] for m in clan.get("memberList", [])}
-
-            col_sel, col_btn = st.columns([3, 1])
-            with col_sel: selected_member = st.selectbox("Select a Clan Member to investigate:", options=list(member_dict.keys()))
-            with col_btn:
-                st.write(""); st.write("")
-                st.button(
-                    "Inspect Profile",
-                    width="stretch",
-                    on_click=jump_to_player,
-                    args=(member_dict[selected_member],)
-                )
-            st.divider()
-
-            tab1, tab2, tab3 = st.tabs(["🚨 Slacker Report", "🛡️ Full Raid Roster", "⚔️ Recent War Log"])
-            with tab1:
-                if not slacker_df.empty: st.dataframe(slacker_df.style.highlight_max(subset=["Violation"], color="#5c2b2b"), width="stretch", hide_index=True)
-                else: st.write("✨ Incredible! Every single clan member showed up and finished their attacks.")
-            with tab2:
-                if not roster_df.empty: st.dataframe(roster_df, width="stretch", hide_index=True)
-                else: st.write("No Raid data found.")
-            with tab3:
-                if not war_df.empty: st.dataframe(war_df, width="stretch", hide_index=True)
-                else: st.write("War log is private or empty.")
+        slacker_df = pd.DataFrame(slacker_rows).sort_values(
