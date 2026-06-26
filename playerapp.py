@@ -58,6 +58,25 @@ def get_upi_qr_bytes(upi_url: str) -> bytes:
     img.save(buffer, format="PNG")
     return buffer.getvalue()
 
+@st.dialog("⚡ Fund the Elixir Pipeline")
+def show_donation_modal():
+    st.caption("Keep the API scraping engine running securely with 0% middleman fees.")
+    
+    upi_string = "upi://pay?pa=shrijayant@apl&pn=Victorious%20Clash&cu=INR"
+    qr_bytes = get_upi_qr_bytes(upi_string)
+    
+    _, col_qr, _ = st.columns([1, 2, 1])
+    with col_qr:
+        st.image(qr_bytes, caption="Scan via any UPI app", use_container_width=True)
+    
+    st.divider()
+    
+    st.markdown(
+        "**🌍 Not from India?**\n\n"
+        "Since the global banking system is a bureaucratic nightmare, I literally cannot accept international cards right now without sacrificing my firstborn to regulatory fees. So, this QR code only works for the Indian UPI network.\n\n"
+        "If you are a high-roller from overseas and absolutely *must* throw money at me to keep the servers alive, drop an email to **victorious.onclash@gmail.com** and we'll figure out a black-market elixir trade."
+    )
+
 # ==========================================
 #         PAGE CONFIG & SESSION STATE
 # ==========================================
@@ -333,27 +352,10 @@ with st.sidebar:
         key="app_mode"
     )
     
-    st.divider() 
+    st.divider()
     
-    # --- INSTANT UPI DONATION LANE ---
-    with st.popover("⚡ Fund the Elixir Pipeline", use_container_width=True):
-        st.caption("Keep the API scraping engine running securely with 0% middleman fees.")
-        
-        upi_string = "upi://pay?pa=shrijayant@apl&pn=Victorious%20Clash&cu=INR"
-        qr_bytes = get_upi_qr_bytes(upi_string)
-        
-        # Center the QR inside the narrow sidebar column
-        _, col_qr, _ = st.columns([1, 4, 1])
-        with col_qr:
-            st.image(qr_bytes, caption="Scan via any UPI app", width=170)
-        
-        st.divider()
-        
-        st.markdown(
-            "**🌍 Not from India?**\n\n"
-            "Since the global banking system is a bureaucratic nightmare, I literally cannot accept international cards right now without sacrificing my firstborn to regulatory fees. So, this QR code only works for the Indian UPI network.\n\n"
-            "If you are a high-roller from overseas and absolutely *must* throw money at me to keep my hobby alive, drop an email to **victorious.onclash@gmail.com** and we'll figure out a dark elixir trade."
-        )
+    if st.button("⚡ Fund the Elixir Pipeline", use_container_width=True):
+        show_donation_modal()
 
 # ------------------------------------------
 # MODULE 1: PLAYER INSPECTOR
