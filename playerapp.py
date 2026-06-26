@@ -12,7 +12,6 @@ BASE_URL = "https://cocproxy.royaleapi.dev/v1"
 # ==========================================
 #         MASTER UNIT DICTIONARY
 # ==========================================
-# This ensures exact API string matches and enables fuzzy searching in the UI
 COC_UNITS = sorted([
     # Elixir Troops
     "Barbarian", "Archer", "Goblin", "Giant", "Wall Breaker", "Balloon", "Wizard", "Healer", "Dragon", "P.E.K.K.A", "Baby Dragon", "Miner", "Electro Dragon", "Yeti", "Dragon Rider", "Electro Titan", "Root Rider",
@@ -27,6 +26,26 @@ COC_UNITS = sorted([
     # Siege Machines
     "Wall Wrecker", "Battle Blimp", "Stone Slammer", "Siege Barracks", "Log Launcher", "Flame Flinger", "Battle Drill"
 ])
+
+# Map super troops to their base troops for accurate API level tracking
+SUPER_TROOP_MAP = {
+    "super barbarian": "barbarian",
+    "super archer": "archer",
+    "sneaky goblin": "goblin",
+    "super giant": "giant",
+    "super wall breaker": "wall breaker",
+    "super balloon": "balloon",
+    "super wizard": "wizard",
+    "super dragon": "dragon",
+    "inferno dragon": "baby dragon",
+    "super minion": "minion",
+    "super valkyrie": "valkyrie",
+    "super witch": "witch",
+    "ice hound": "lava hound",
+    "super bowler": "bowler",
+    "super miner": "miner",
+    "super hog rider": "hog rider"
+}
 
 # ==========================================
 #         PAGE CONFIG & SESSION STATE
@@ -158,26 +177,26 @@ async def process_clan_auditor(tag, input_type, token):
 async def run_ping_a_donor(member_tags, clan_level, unit_name, desired_level, is_max, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     
-    # Fetch all 50 profiles concurrently - SUPER fast
     async with aiohttp.ClientSession() as session:
         tasks = [fetch_player_profile(session, tag, headers) for tag in member_tags]
         profiles = await asyncio.gather(*tasks)
 
-    # Determine clan perk boost
     level_boost = 0
     if clan_level >= 10: level_boost = 2
     elif clan_level >= 5: level_boost = 1
 
     eligible_players = []
+    
+    # Check if the requested unit is a super troop, and swap to base troop name if it is
     unit_name_lower = unit_name.lower().strip()
+    search_unit_name = SUPER_TROOP_MAP.get(unit_name_lower, unit_name_lower)
 
     for p in profiles:
         if not p: continue
-        # Combine troops, spells, and sieges (sieges are housed in the 'troops' array in the API)
         inventory = p.get("troops", []) + p.get("spells", [])
         
         for item in inventory:
-            if item["name"].lower() == unit_name_lower and item.get("village") == "home":
+            if item["name"].lower() == search_unit_name and item.get("village") == "home":
                 actual_level = item["level"]
                 max_possible = item["maxLevel"]
                 effective_level = min(actual_level + level_boost, max_possible)
@@ -194,11 +213,15 @@ async def run_ping_a_donor(member_tags, clan_level, unit_name, desired_level, is
                         "Role": p.get("role", "member").replace("admin", "Elder").replace("coLeader", "Co-Leader").capitalize(),
                         "Base Level": actual_level,
                         "Boosted Level": effective_level,
+                        "Donations (Season)": p.get("donations", 0),
                         "Is Max?": "🔥 MAX" if effective_level >= max_possible else "No"
                     })
-                break # Move to next player once the unit is found and evaluated
+                break
     
-    return pd.DataFrame(eligible_players).sort_values(by="Base Level", ascending=False) if eligible_players else pd.DataFrame()
+    # Sort primarily by Donations (descending), then by Base Level (descending)
+    if eligible_players:
+        return pd.DataFrame(eligible_players).sort_values(by=["Donations (Season)", "Base Level"], ascending=[False, False])
+    return pd.DataFrame()
 
 # ==========================================
 #         GUI RENDERER (STREAMLIT)
@@ -243,14 +266,12 @@ if app_mode == "🕵️ Player Inspector":
                     args=(profile['clan']['tag'],)
                 )
 
-            # --- ADDED NEW METRICS HERE ---
             c1, c2, c3, c4, c5 = st.columns(5)
             c1.metric("Town Hall", profile.get("townHallLevel"))
             c2.metric("Trophies", profile.get("trophies"))
             c3.metric("Attack Wins", profile.get("attackWins", 0))
             c4.metric("Defense Wins", profile.get("defenseWins", 0))
             
-            # Calculate Donation Ratio
             donated = profile.get("donations", 0)
             received = profile.get("donationsReceived", 0)
             ratio = round(donated / received, 2) if received > 0 else donated
@@ -309,7 +330,6 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                 )
             st.divider()
 
-            # --- ADDED PING-A-DONOR TAB HERE ---
             tab1, tab2, tab3, tab4 = st.tabs(["🚨 Slacker Report", "🛡️ Full Raid Roster", "⚔️ Recent War Log", "🎯 Ping-A-Donor"])
             
             with tab1:
@@ -324,7 +344,6 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                 if not war_df.empty: st.dataframe(war_df, width="stretch", hide_index=True)
                 else: st.write("War log is private or empty.")
             
-            # --- PING-A-DONOR LOGIC ---
             with tab4:
                 clan_lvl = clan.get('clanLevel', 1)
                 boost = 2 if clan_lvl >= 10 else (1 if clan_lvl >= 5 else 0)
@@ -332,7 +351,6 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                 st.caption(f"**Clan Level {clan_lvl}** | Active Donation Boost: **+{boost} Levels**")
                 
                 req_col1, req_col2, req_col3 = st.columns([2, 1, 1])
-                # UPDATED: Now a searchable selectbox mapped directly to the COC_UNITS list
                 with req_col1: unit_name = st.selectbox("Select Unit to Request:", options=COC_UNITS)
                 with req_col2: desired_lvl = st.number_input("Minimum Level:", min_value=1, value=1, step=1)
                 with req_col3: 
