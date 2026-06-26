@@ -306,7 +306,7 @@ async def run_ping_a_donor(member_tags, clan_level, unit_name, desired_level, is
 # ==========================================
 #         GUI RENDERER (STREAMLIT)
 # ==========================================
-st.title("🛡️ CoC Operations Master Suite")
+st.title("🛡️ CLash Intel by VICTORIOUS")
 
 with st.sidebar:
     st.header("⚙️ Configuration")
