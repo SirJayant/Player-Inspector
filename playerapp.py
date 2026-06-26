@@ -44,7 +44,7 @@ def get_th_hero_max(hero_name, th_level, global_max):
 # ==========================================
 #         PAGE CONFIG & SESSION STATE
 # ==========================================
-st.set_page_config(page_title="CoC Master Suite", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="Clash Intel by VICTORIOUS", page_icon="🛡️", layout="wide")
 
 if "app_mode" not in st.session_state: st.session_state.app_mode = "🕵️ Player Inspector"
 if "target_player_tag" not in st.session_state: st.session_state.target_player_tag = ""
@@ -306,7 +306,7 @@ async def run_ping_a_donor(member_tags, clan_level, unit_name, desired_level, is
 # ==========================================
 #         GUI RENDERER (STREAMLIT)
 # ==========================================
-st.title("🛡️ CLash Intel by VICTORIOUS")
+st.title("🛡️ Clash Intel by VICTORIOUS")
 
 with st.sidebar:
     st.header("⚙️ Configuration")
