@@ -336,7 +336,7 @@ with st.sidebar:
     st.divider() 
     
     # --- INSTANT UPI DONATION LANE ---
-    with st.popover("⚡ Fund the Elixir Pipeline", use_container_width):
+    with st.popover("⚡ Fund the Elixir Pipeline", use_container_width=True):
         st.caption("Keep the API scraping engine running securely with 0% middleman fees.")
         
         upi_string = "upi://pay?pa=shrijayant@apl&pn=Victorious%20Clash&cu=INR"
