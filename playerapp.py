@@ -43,6 +43,21 @@ def get_th_hero_max(hero_name, th_level, global_max):
     if th_level > max(caps.keys(), default=0): return global_max
     return global_max
 
+@st.cache_data(show_spinner=False)
+def get_upi_qr_bytes(upi_url: str) -> bytes:
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=2,
+    )
+    qr.add_data(upi_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    return buffer.getvalue()
+
 # ==========================================
 #         PAGE CONFIG & SESSION STATE
 # ==========================================
@@ -312,45 +327,33 @@ st.title("🛡️ Clash Intel by VICTORIOUS")
 
 with st.sidebar:
     st.header("⚙️ Configuration")
-    app_mode = st.radio("Select Module:", ["🕵️ Player Inspector", "🏰 Clan & Raid Auditor"], key="app_mode")
+    app_mode = st.radio(
+        "Select Module:", 
+        ["🕵️ Player Inspector", "🏰 Clan & Raid Auditor"], 
+        key="app_mode"
+    )
     
-    st.divider()
+    st.divider() 
     
-    st.divider()
-    
-    # --- INSTANT UPI DONATION LANE (COLLAPSED) ---
+    # --- INSTANT UPI DONATION LANE ---
     with st.expander("⚡ Fund the Elixir Pipeline", expanded=False):
         st.caption("Keep the API scraping engine running securely with 0% middleman fees.")
         
-        # Your working UPI string
         upi_string = "upi://pay?pa=shrijayant@apl&pn=Victorious%20Clash&cu=INR"
+        qr_bytes = get_upi_qr_bytes(upi_string)
         
-        import qrcode
-        from io import BytesIO
-        
-        # Dynamically generate the QR code in memory
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=2,
-        )
-        qr.add_data(upi_string)
-        qr.make(fit=True)
-        
-        img = qr.make_image(fill_color="black", back_color="white")
-        buffer = BytesIO()
-        img.save(buffer, format="PNG")
-        
-        # Display the QR code INSIDE the expander
-        st.image(buffer, caption="Scan to donate via any UPI app", width=220)
+        # Center the QR inside the narrow sidebar column
+        _, col_qr, _ = st.columns([1, 4, 1])
+        with col_qr:
+            st.image(qr_bytes, caption="Scan via any UPI app", width=170)
         
         st.divider()
         
-        # The international text sits neatly below the QR code inside the same menu
-        st.write("🌍 **Not from India?**")
-        st.write("Since the global banking system is a bureaucratic nightmare, I literally cannot accept international cards right now without sacrificing my firstborn to regulatory fees. So, this QR code only works for the Indian UPI network.")
-        st.write("If you are a high-roller from overseas and absolutely *must* throw money at me to keep the servers alive, drop an email to **victorious.onclash@gmail.com** and we'll figure out a black-market elixir trade.")
+        st.markdown(
+            "**🌍 Not from India?**\n\n"
+            "Since the global banking system is a bureaucratic nightmare, I literally cannot accept international cards right now without sacrificing my firstborn to regulatory fees. So, this QR code only works for the Indian UPI network.\n\n"
+            "If you are a high-roller from overseas and absolutely *must* throw money at me to keep the servers alive, drop an email to **victorious.onclash@gmail.com** and we'll figure out a black-market elixir trade."
+        )
 
 # ------------------------------------------
 # MODULE 1: PLAYER INSPECTOR
