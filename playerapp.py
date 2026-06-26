@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 
 # ==========================================
-#         SECURE CONFIG & CONSTANTS
+#           SECURE CONFIG & CONSTANTS
 # ==========================================
 COC_TOKEN = st.secrets["COC_TOKEN"]
 BASE_URL = "https://cocproxy.royaleapi.dev/v1"
@@ -130,7 +130,7 @@ def get_smart_army_code(share_codes):
     return max(strategy_groups[best_fingerprint], key=lambda x: x[0])[1]
 
 # ==========================================
-#         CORE LOGIC ENGINES
+#          CORE LOGIC ENGINES
 # ==========================================
 async def process_player_inspector(tag, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
@@ -311,6 +311,20 @@ st.title("🛡️ Clash Intel by VICTORIOUS")
 with st.sidebar:
     st.header("⚙️ Configuration")
     app_mode = st.radio("Select Module:", ["🕵️ Player Inspector", "🏰 Clan & Raid Auditor"], key="app_mode")
+    
+    st.divider()
+    
+    # --- INSTANT UPI DONATION LANE ---
+    st.subheader("⚡ Fund the Elixir Pipeline")
+    st.caption("Keep the API scraping engine running securely with 0% middleman fees.")
+    
+    # Universal UPI deep link targeting your verified alias number
+    upi_link = "upi://pay?pa=773355375@upi&pn=Victorious Clash&cu=INR"
+    
+    st.markdown(
+        f'[![Pay via UPI](https://img.shields.io/badge/Donate_via_UPI-Instant_Transfer-orange?style=for-the-badge&logo=upi&logoColor=white)]({upi_link})'
+    )
+    st.caption("ℹ️ Tapping opens your phone's primary payment app pre-filled.")
 
 # ------------------------------------------
 # MODULE 1: PLAYER INSPECTOR
