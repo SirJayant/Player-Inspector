@@ -343,7 +343,7 @@ with st.sidebar:
     # Hide the clunky international explanation under a clean expander
     with st.expander("🌍 Wait, what if I'm not from India?"):
         st.write("Since the global banking system is a bureaucratic nightmare, I literally cannot accept international cards right now without sacrificing my firstborn to regulatory fees. So, this QR code only works for the Indian UPI network.")
-        st.write("If you are a high-roller from overseas and absolutely *must* throw money at me to keep the servers alive, drop an email to **victorious.onclash@gmail.com** and we'll figure out a black-market elixir trade.")
+        st.write("If you are a high-roller from overseas and absolutely *must* throw money at me to keep my hobby alive, drop an email to **victorious.onclash@gmail.com** and we'll figure out a black-market elixir trade.")
 
 
 
