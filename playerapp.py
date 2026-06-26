@@ -316,35 +316,7 @@ with st.sidebar:
     
     st.divider()
     
-    # --- INSTANT UPI DONATION LANE ---
-    st.subheader("⚡ Fund the Elixir Pipeline")
-    st.caption("Keep the API scraping engine running securely with 0% middleman fees.")
-
-    # Your working UPI string
-    upi_string = "upi://pay?pa=shrijayant@apl&pn=Victorious%20Clash&cu=INR"
-    
-    # Dynamically generate the QR code in memory
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=2,
-    )
-    qr.add_data(upi_string)
-    qr.make(fit=True)
-
-    img = qr.make_image(fill_color="black", back_color="white")
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-
-    # Display the QR code in the sidebar
-    st.image(buffer, caption="Scan to donate via any UPI app", use_container_width=True)
-
-    # Hide the clunky international explanation under a clean expander
-    with st.expander("🌍 Wait, what if I'm not from India?"):
-        st.write("Since the global banking system is a bureaucratic nightmare, I literally cannot accept international cards right now without sacrificing my firstborn to regulatory fees. So, this QR code only works for the Indian UPI network.")
-        st.write("If you are a high-roller from overseas and absolutely *must* throw money at me to keep my hobby alive, drop an email to **victorious.onclash@gmail.com** and we'll figure out a black-market elixir trade.")
-
+    qrcode[pil]
 
 
 # ------------------------------------------
