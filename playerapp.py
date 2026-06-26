@@ -1,10 +1,10 @@
 import asyncio
 import collections
 import urllib.parse
+import re
 import aiohttp
 import pandas as pd
 import streamlit as st
-import re
 
 # ==========================================
 #         SECURE CONFIG & CONSTANTS
@@ -86,10 +86,6 @@ async def fetch_player_profile(session, tag, headers):
         return None
 
 def get_smart_army_code(share_codes):
-    """
-    Groups army share codes by their core unique IDs and returns the 
-    heaviest single deployment to filter out incomplete attacks.
-    """
     if not share_codes:
         return None
         
@@ -136,11 +132,11 @@ def get_smart_army_code(share_codes):
 # ==========================================
 #         CORE LOGIC ENGINES
 # ==========================================
-async def process_player_inspector(tag, token, include_unranked=False):
+async def process_player_inspector(tag, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     async with aiohttp.ClientSession() as session:
         profile_data, error = await fetch_api(session, f"players/{format_tag(tag)}", headers)
-        if error: return None, None, None, None, None, None, False, error
+        if error: return None, None, None, None, None, None, None, False, error
 
         th_level = profile_data.get("townHallLevel", 1)
 
@@ -163,24 +159,32 @@ async def process_player_inspector(tag, token, include_unranked=False):
                     "Name": h["name"], "Level": h["level"], "TH_Max": th_max, "IsMax": (h["level"] >= th_max)
                 })
 
+        # Battle Log Processing
         battle_log, _ = await fetch_api(session, f"players/{format_tag(tag)}/battlelog", headers)
         
         is_maintenance = (battle_log is not None and "items" in battle_log and len(battle_log["items"]) == 0)
-        army_url = None
+        ranked_code = None
+        unranked_code = None
         ranked_defenses = []
 
         if battle_log and "items" in battle_log:
-            codes = []
+            ranked_offensive_codes = []
+            unranked_offensive_codes = []
+
             for item in battle_log["items"]:
                 if item.get("armyShareCode") and item.get("attack"):
                     b_type = item.get("battleType")
-                    if b_type in ["ranked", "legend"] or include_unranked:
-                        codes.append(item.get("armyShareCode"))
-            
-            if codes:
-                best_code = get_smart_army_code(codes)
-                army_url = f"https://link.clashofclans.com/en?action=CopyArmy&army={best_code}"
+                    if b_type in ["ranked", "legend"]:
+                        ranked_offensive_codes.append(item.get("armyShareCode"))
+                    else:
+                        unranked_offensive_codes.append(item.get("armyShareCode"))
 
+            if ranked_offensive_codes:
+                ranked_code = get_smart_army_code(ranked_offensive_codes)
+            if unranked_offensive_codes:
+                unranked_code = get_smart_army_code(unranked_offensive_codes)
+
+            # Defensive parsing (reversed for newest first)
             for item in reversed(battle_log["items"]):
                 if item.get("battleType") in ["ranked", "legend"] and not item.get("attack"):
                     code = item.get("armyShareCode")
@@ -194,7 +198,7 @@ async def process_player_inspector(tag, token, include_unranked=False):
                         "Army Link": f"https://link.clashofclans.com/en?action=CopyArmy&army={code}" if code else None
                     })
 
-        return profile_data, eq_df, army_url, home_heroes, hero_sum, ranked_defenses, is_maintenance, None
+        return profile_data, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, is_maintenance, None
 
 async def process_clan_auditor(tag, input_type, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
@@ -260,15 +264,11 @@ async def process_clan_auditor(tag, input_type, token):
 
 async def run_ping_a_donor(member_tags, clan_level, unit_name, desired_level, is_max, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-    
     async with aiohttp.ClientSession() as session:
         tasks = [fetch_player_profile(session, tag, headers) for tag in member_tags]
         profiles = await asyncio.gather(*tasks)
 
-    level_boost = 0
-    if clan_level >= 10: level_boost = 2
-    elif clan_level >= 5: level_boost = 1
-
+    level_boost = 2 if clan_level >= 10 else (1 if clan_level >= 5 else 0)
     eligible_players = []
     unit_name_lower = unit_name.lower().strip()
     search_unit_name = SUPER_TROOP_MAP.get(unit_name_lower, unit_name_lower)
@@ -276,7 +276,6 @@ async def run_ping_a_donor(member_tags, clan_level, unit_name, desired_level, is
     for p in profiles:
         if not p: continue
         inventory = p.get("troops", []) + p.get("spells", [])
-        
         for item in inventory:
             if item["name"].lower() == search_unit_name and item.get("village") == "home":
                 actual_level = item["level"]
@@ -320,9 +319,7 @@ if app_mode == "🕵️ Player Inspector":
     st.subheader("🕵️ Player Inspector")
 
     col1, col2 = st.columns([3, 1])
-    with col1: 
-        target_tag = st.text_input("Enter Player Tag:", key="target_player_tag", placeholder="#QYJ89QR")
-        include_unranked = st.checkbox("Include Unranked (Farming/Casual) Attacks in Army Finder", value=False)
+    with col1: target_tag = st.text_input("Enter Player Tag:", key="target_player_tag", placeholder="#QYJ89QR")
     with col2:
         st.write(""); st.write("")
         inspect_btn = st.button("Inspect Player", width="stretch", type="primary")
@@ -330,10 +327,10 @@ if app_mode == "🕵️ Player Inspector":
     if (inspect_btn or st.session_state.trigger_fetch) and target_tag:
         st.session_state.trigger_fetch = False
         with st.spinner("Infiltrating Supercell Servers..."):
-            st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN, include_unranked))
+            st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN))
 
     if st.session_state.scanned_player:
-        profile, eq_df, army_url, home_heroes, hero_sum, ranked_defenses, is_maintenance, error = st.session_state.scanned_player
+        profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, is_maintenance, error = st.session_state.scanned_player
 
         if error:
             st.error(error)
@@ -342,12 +339,7 @@ if app_mode == "🕵️ Player Inspector":
 
             if profile.get("clan"):
                 st.info(f"🔰 **Clan Detected:** {profile['clan']['name']} ({profile['clan']['tag']})")
-                st.button(
-                    "Run Audit on this Clan",
-                    width="stretch",
-                    on_click=jump_to_clan,
-                    args=(profile['clan']['tag'],)
-                )
+                st.button("Run Audit on this Clan", width="stretch", on_click=jump_to_clan, args=(profile['clan']['tag'],))
 
             st.markdown("#### 🏛️ Account Overview")
             t1_c1, t1_c2, t1_c3, t1_c4, t1_c5 = st.columns(5)
@@ -365,7 +357,6 @@ if app_mode == "🕵️ Player Inspector":
             donated = profile.get("donations", 0)
             received = profile.get("donationsReceived", 0)
             ratio = round(donated / received, 2) if received > 0 else donated
-            
             t2_c3.metric("Troops Donated", donated)
             t2_c4.metric("Troops Received", received)
             t2_c5.metric("Donation Ratio", f"{ratio}x")
@@ -374,25 +365,41 @@ if app_mode == "🕵️ Player Inspector":
                 st.markdown("#### 👑 Hero Altar")
                 h_cols = st.columns(len(home_heroes))
                 for idx, h in enumerate(home_heroes):
-                    h_cols[idx].metric(
-                        label=h["Name"],
-                        value=f"Lvl {h['Level']}",
-                        delta="TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}",
-                        delta_color="normal" if h["IsMax"] else "off"
-                    )
+                    h_cols[idx].metric(label=h["Name"], value=f"Lvl {h['Level']}", delta="TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}", delta_color="normal" if h["IsMax"] else "off")
 
             st.divider()
             
-            if army_url: 
-                st.info(f"⚔️ **Most Used {'All' if include_unranked else 'Ranked/Legend'} Army Detected!** [Click here to copy to game]({army_url})")
-            else: 
-                st.warning("No offensive army data found.")
+            # --- OFFENSIVE ARMY LINKS SECTION ---
+            st.markdown("#### ⚔️ Detected Offensive Armies")
+            
+            # Check if they match completely
+            if ranked_code and unranked_code and (ranked_code == unranked_code):
+                st.toast("One-trick pony alert! 🦄")
+                st.info("😏 **Note:** This player runs the exact same strategy in Ranked matches and casual multiplayer. Consistency or lack of creativity? You decide.")
+            
+            arm_col1, arm_col2 = st.columns(2)
+            with arm_col1:
+                st.markdown("**🏆 Ranked / Legend Army**")
+                if ranked_code:
+                    st.success("Main strategy found!")
+                    st.link_button("🔗 Copy Ranked Army", f"https://link.clashofclans.com/en?action=CopyArmy&army={ranked_code}", use_container_width=True)
+                else:
+                    st.warning("No recent Ranked/Legend offensive data.")
+                    
+            with arm_col2:
+                st.markdown("**🏡 Unranked (Farming/Multiplayer) Army**")
+                if unranked_code:
+                    st.success("Casual strategy found!")
+                    st.link_button("🔗 Copy Unranked Army", f"https://link.clashofclans.com/en?action=CopyArmy&army={unranked_code}", use_container_width=True)
+                else:
+                    st.warning("No recent Unranked offensive data.")
 
             st.divider()
 
-            st.markdown("#### 🛡️ Recent Ranked/Legend Defenses (Who Attacked You)")
+            # --- DEFENSIVE BATTLE LOG SECTION ---
+            st.markdown("#### 🛡️ Recent Ranked/Legend Defenses")
             if is_maintenance:
-                st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break when defense history is wiped.")
+                st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break.")
 
             if ranked_defenses:
                 show_3star_only = st.checkbox("Filter: Show only 3-Star Defenses")
@@ -401,15 +408,7 @@ if app_mode == "🕵️ Player Inspector":
                     df_defenses = df_defenses[df_defenses["Stars"] == 3]
 
                 if not df_defenses.empty:
-                    st.dataframe(
-                        df_defenses, 
-                        column_config={
-                            "Army Link": st.column_config.LinkColumn("Copy Army", display_text="🔗 Copy"), 
-                            "Tag": st.column_config.TextColumn("Player Tag")
-                        }, 
-                        use_container_width=True, 
-                        hide_index=True
-                    )
+                    st.dataframe(df_defenses, column_config={"Army Link": st.column_config.LinkColumn("Copy Army", display_text="🔗 Copy"), "Tag": st.column_config.TextColumn("Player Tag")}, use_container_width=True, hide_index=True)
                     
                     st.markdown("##### 🔎 Investigate Opponent")
                     col_tgt1, col_tgt2 = st.columns([3, 1])
@@ -428,7 +427,6 @@ if app_mode == "🕵️ Player Inspector":
             if not eq_df.empty:
                 st.write("### 🔨 Hero Equipment Loadout")
                 st.dataframe(eq_df, width="stretch", hide_index=True)
-            else: st.write("No Hero Equipment found.")
 
 # ------------------------------------------
 # MODULE 2: CLAN & Raid Auditor
@@ -465,12 +463,7 @@ elif app_mode == "🏰 Clan & Raid Auditor":
             with col_sel: selected_member = st.selectbox("Select a Clan Member to investigate:", options=list(member_dict.keys()))
             with col_btn:
                 st.write(""); st.write("")
-                st.button(
-                    "Inspect Profile",
-                    width="stretch",
-                    on_click=jump_to_player,
-                    args=(member_dict[selected_member],)
-                )
+                st.button("Inspect Profile", width="stretch", on_click=jump_to_player, args=(member_dict[selected_member],))
             st.divider()
 
             tab1, tab2, tab3, tab4 = st.tabs(["🚨 Slacker Report", "🛡️ Full Raid Roster", "⚔️ Recent War Log", "🎯 Ping-A-Donor"])
@@ -494,7 +487,6 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                 st.caption(f"**Clan Level {clan_lvl}** | Active Donation Boost: **+{boost} Levels**")
                 
                 req_col1, req_col2, req_col3 = st.columns([2, 1, 1])
-                
                 with req_col1: unit_name = st.selectbox("Select Unit to Request:", options=clan_units if clan_units else ["No units found"])
                 with req_col2: desired_lvl = st.number_input("Minimum Level:", min_value=1, value=1, step=1)
                 with req_col3: 
