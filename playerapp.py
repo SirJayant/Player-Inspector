@@ -319,7 +319,7 @@ with st.sidebar:
     st.caption("Keep the API scraping engine running securely with 0% middleman fees.")
     
     # FIX: Replaced the space in the name with %20 so Streamlit markdown doesn't break
-    upi_link = "upi://pay?pa=773355375@upi&pn=Victorious%20Clash&cu=INR"
+    upi_link = "upi://pay?pa=773355375@upi&pn=VictoriousClash&cu=INR"
     
     st.markdown(
         f'[![Pay via UPI](https://img.shields.io/badge/Donate_via_UPI-Instant_Transfer-orange?style=for-the-badge&logo=upi&logoColor=white)]({upi_link})'
