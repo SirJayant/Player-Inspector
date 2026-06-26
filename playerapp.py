@@ -10,6 +10,25 @@ COC_TOKEN = st.secrets["COC_TOKEN"]
 BASE_URL = "https://cocproxy.royaleapi.dev/v1"
 
 # ==========================================
+#         MASTER UNIT DICTIONARY
+# ==========================================
+# This ensures exact API string matches and enables fuzzy searching in the UI
+COC_UNITS = sorted([
+    # Elixir Troops
+    "Barbarian", "Archer", "Goblin", "Giant", "Wall Breaker", "Balloon", "Wizard", "Healer", "Dragon", "P.E.K.K.A", "Baby Dragon", "Miner", "Electro Dragon", "Yeti", "Dragon Rider", "Electro Titan", "Root Rider",
+    # Dark Elixir Troops
+    "Minion", "Hog Rider", "Valkyrie", "Golem", "Witch", "Lava Hound", "Bowler", "Ice Golem", "Headhunter", "Apprentice Warden", "Druid",
+    # Super Troops
+    "Super Barbarian", "Super Archer", "Sneaky Goblin", "Super Wall Breaker", "Super Giant", "Super Balloon", "Super Wizard", "Super Dragon", "Inferno Dragon", "Super Minion", "Super Valkyrie", "Super Witch", "Ice Hound", "Super Bowler", "Super Miner", "Super Hog Rider",
+    # Elixir Spells
+    "Lightning Spell", "Healing Spell", "Rage Spell", "Jump Spell", "Freeze Spell", "Clone Spell", "Invisibility Spell", "Recall Spell",
+    # Dark Spells
+    "Poison Spell", "Earthquake Spell", "Haste Spell", "Skeleton Spell", "Bat Spell", "Overgrowth Spell",
+    # Siege Machines
+    "Wall Wrecker", "Battle Blimp", "Stone Slammer", "Siege Barracks", "Log Launcher", "Flame Flinger", "Battle Drill"
+])
+
+# ==========================================
 #         PAGE CONFIG & SESSION STATE
 # ==========================================
 st.set_page_config(page_title="CoC Master Suite", page_icon="🛡️", layout="wide")
@@ -313,7 +332,8 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                 st.caption(f"**Clan Level {clan_lvl}** | Active Donation Boost: **+{boost} Levels**")
                 
                 req_col1, req_col2, req_col3 = st.columns([2, 1, 1])
-                with req_col1: unit_name = st.text_input("Unit Name (e.g., Yeti, Poison Spell, Log Launcher):")
+                # UPDATED: Now a searchable selectbox mapped directly to the COC_UNITS list
+                with req_col1: unit_name = st.selectbox("Select Unit to Request:", options=COC_UNITS)
                 with req_col2: desired_lvl = st.number_input("Minimum Level:", min_value=1, value=1, step=1)
                 with req_col3: 
                     st.write(""); st.write("")
