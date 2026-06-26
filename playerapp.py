@@ -5,35 +5,18 @@ import aiohttp
 import pandas as pd
 import streamlit as st
 
-# SECURE CONFIG: Pulls from Streamlit Cloud Secrets vault natively. No .env needed.
+# SECURE CONFIG: Pulls from Streamlit Cloud Secrets vault natively.
 COC_TOKEN = st.secrets["COC_TOKEN"]
 BASE_URL = "https://cocproxy.royaleapi.dev/v1"
 
-# ==========================================
-#         MASTER UNIT DICTIONARY
-# ==========================================
-COC_UNITS = sorted([
-    # Elixir Troops
-    "Barbarian", "Archer", "Goblin", "Giant", "Wall Breaker", "Balloon", "Wizard", "Healer", "Dragon", "P.E.K.K.A", "Baby Dragon", "Miner", "Electro Dragon", "Yeti", "Dragon Rider", "Electro Titan", "Root Rider",
-    # Dark Elixir Troops
-    "Minion", "Hog Rider", "Valkyrie", "Golem", "Witch", "Lava Hound", "Bowler", "Ice Golem", "Headhunter", "Apprentice Warden", "Druid",
-    # Super Troops
-    "Super Barbarian", "Super Archer", "Sneaky Goblin", "Super Wall Breaker", "Super Giant", "Super Balloon", "Super Wizard", "Super Dragon", "Inferno Dragon", "Super Minion", "Super Valkyrie", "Super Witch", "Ice Hound", "Super Bowler", "Super Miner", "Super Hog Rider",
-    # Elixir Spells
-    "Lightning Spell", "Healing Spell", "Rage Spell", "Jump Spell", "Freeze Spell", "Clone Spell", "Invisibility Spell", "Recall Spell",
-    # Dark Spells
-    "Poison Spell", "Earthquake Spell", "Haste Spell", "Skeleton Spell", "Bat Spell", "Overgrowth Spell",
-    # Siege Machines
-    "Wall Wrecker", "Battle Blimp", "Stone Slammer", "Siege Barracks", "Log Launcher", "Flame Flinger", "Battle Drill"
-])
-
-# Map super troops to their base troops for accurate API level tracking
+# Maps Super Troops to their base unit so the live API search checks the real level
 SUPER_TROOP_MAP = {
     "super barbarian": "barbarian",
     "super archer": "archer",
     "sneaky goblin": "goblin",
     "super giant": "giant",
     "super wall breaker": "wall breaker",
+    "rocket balloon": "balloon",
     "super balloon": "balloon",
     "super wizard": "wizard",
     "super dragon": "dragon",
@@ -52,13 +35,11 @@ SUPER_TROOP_MAP = {
 # ==========================================
 st.set_page_config(page_title="CoC Master Suite", page_icon="🛡️", layout="wide")
 
-# Initialize routing states
 if "app_mode" not in st.session_state: st.session_state.app_mode = "🕵️ Player Inspector"
 if "target_player_tag" not in st.session_state: st.session_state.target_player_tag = ""
 if "target_clan_tag" not in st.session_state: st.session_state.target_clan_tag = ""
 if "trigger_fetch" not in st.session_state: st.session_state.trigger_fetch = False
 
-# Initialize data cache states
 if "scanned_player" not in st.session_state: st.session_state.scanned_player = None
 if "scanned_clan" not in st.session_state: st.session_state.scanned_clan = None
 
@@ -104,7 +85,7 @@ async def process_player_inspector(tag, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     async with aiohttp.ClientSession() as session:
         profile_data, error = await fetch_api(session, f"players/{format_tag(tag)}", headers)
-        if error: return None, None, None, error
+        if error: return None, None, None, None, None, error
 
         equipment_list = []
         for eq in profile_data.get("heroEquipment", []):
@@ -115,6 +96,16 @@ async def process_player_inspector(tag, token):
                 })
         eq_df = pd.DataFrame(equipment_list).sort_values(by="Level", ascending=False) if equipment_list else pd.DataFrame()
 
+        home_heroes = []
+        hero_sum = 0
+        for h in profile_data.get("heroes", []):
+            if h.get("village") == "home":
+                hero_sum += h["level"]
+                home_heroes.append({
+                    "Name": h["name"], "Level": h["level"], "Max": h["maxLevel"],
+                    "IsMax": (h["level"] == h["maxLevel"])
+                })
+
         battle_log, _ = await fetch_api(session, f"players/{format_tag(tag)}/battlelog", headers)
         army_url = None
         if battle_log and "items" in battle_log:
@@ -123,21 +114,36 @@ async def process_player_inspector(tag, token):
                 most_common_code, _ = collections.Counter(codes).most_common(1)[0]
                 army_url = f"https://link.clashofclans.com/en?action=CopyArmy&army={most_common_code}"
 
-        return profile_data, eq_df, army_url, None
+        return profile_data, eq_df, army_url, home_heroes, hero_sum, None
 
 async def process_clan_auditor(tag, input_type, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     async with aiohttp.ClientSession() as session:
         if input_type == "Player Tag":
             player_data, err = await fetch_api(session, f"players/{format_tag(tag)}", headers)
-            if err or not player_data.get("clan"): return None, None, None, None, "Could not resolve player to a clan."
+            if err or not player_data.get("clan"): return None, None, None, None, None, "Could not resolve player to a clan."
             clan_tag = player_data["clan"]["tag"]
         else:
             clan_tag = tag
 
         clan_data, err = await fetch_api(session, f"clans/{format_tag(clan_tag)}", headers)
-        if err: return None, None, None, None, err
+        if err: return None, None, None, None, None, err
         master_roster = clan_data.get("memberList", [])
+
+        # --- DYNAMIC UNIT GENERATOR ---
+        # Grabs top 3 highest EXP members to dynamically build the clan's exact available unit dictionary
+        top_3_tags = [m["tag"] for m in sorted(master_roster, key=lambda x: x.get("expLevel", 0), reverse=True)[:3]]
+        profile_tasks = [fetch_player_profile(session, t, headers) for t in top_3_tags]
+        top_profiles = await asyncio.gather(*profile_tasks)
+        
+        live_clan_units = set()
+        for p in top_profiles:
+            if not p: continue
+            for item in p.get("troops", []) + p.get("spells", []):
+                if item.get("village") == "home":
+                    live_clan_units.add(item["name"])
+        sorted_clan_units = sorted(list(live_clan_units))
+        # ------------------------------
 
         war_data, _ = await fetch_api(session, f"clans/{format_tag(clan_tag)}/warlog", headers)
         war_log = []
@@ -172,7 +178,8 @@ async def process_clan_auditor(tag, input_type, token):
 
         slacker_df = pd.DataFrame(slacker_rows).sort_values(by=["Attacks Used", "Gold"]) if slacker_rows else pd.DataFrame()
         roster_df = pd.DataFrame(roster_rows).sort_values(by="Gold", ascending=False) if roster_rows else pd.DataFrame()
-        return clan_data, slacker_df, roster_df, war_df, None
+        
+        return clan_data, slacker_df, roster_df, war_df, sorted_clan_units, None
 
 async def run_ping_a_donor(member_tags, clan_level, unit_name, desired_level, is_max, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
@@ -186,8 +193,6 @@ async def run_ping_a_donor(member_tags, clan_level, unit_name, desired_level, is
     elif clan_level >= 5: level_boost = 1
 
     eligible_players = []
-    
-    # Check if the requested unit is a super troop, and swap to base troop name if it is
     unit_name_lower = unit_name.lower().strip()
     search_unit_name = SUPER_TROOP_MAP.get(unit_name_lower, unit_name_lower)
 
@@ -218,7 +223,6 @@ async def run_ping_a_donor(member_tags, clan_level, unit_name, desired_level, is
                     })
                 break
     
-    # Sort primarily by Donations (descending), then by Base Level (descending)
     if eligible_players:
         return pd.DataFrame(eligible_players).sort_values(by=["Donations (Season)", "Base Level"], ascending=[False, False])
     return pd.DataFrame()
@@ -250,12 +254,12 @@ if app_mode == "🕵️ Player Inspector":
             st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN))
 
     if st.session_state.scanned_player:
-        profile, eq_df, army_url, error = st.session_state.scanned_player
+        profile, eq_df, army_url, home_heroes, hero_sum, error = st.session_state.scanned_player
 
         if error:
             st.error(error)
         else:
-            st.success(f"Successfully located {profile.get('name')}!")
+            st.success(f"Successfully located **{profile.get('name')}**!")
 
             if profile.get("clan"):
                 st.info(f"🔰 **Clan Detected:** {profile['clan']['name']} ({profile['clan']['tag']})")
@@ -266,16 +270,37 @@ if app_mode == "🕵️ Player Inspector":
                     args=(profile['clan']['tag'],)
                 )
 
-            c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Town Hall", profile.get("townHallLevel"))
-            c2.metric("Trophies", profile.get("trophies"))
-            c3.metric("Attack Wins", profile.get("attackWins", 0))
-            c4.metric("Defense Wins", profile.get("defenseWins", 0))
+            st.markdown("#### 🏛️ Account Overview")
+            t1_c1, t1_c2, t1_c3, t1_c4, t1_c5 = st.columns(5)
+            t1_c1.metric("Town Hall", profile.get("townHallLevel"))
+            t1_c2.metric("League", profile.get("league", {}).get("name", "Unranked"))
+            t1_c3.metric("Trophies", profile.get("trophies"))
+            t1_c4.metric("War Stars", f"⭐ {profile.get('warStars', 0)}")
+            t1_c5.metric("Total Hero Power", f"⚡ {hero_sum}")
+
+            st.markdown("#### 📊 Monthly Ledger")
+            t2_c1, t2_c2, t2_c3, t2_c4, t2_c5 = st.columns(5)
+            t2_c1.metric("Attack Wins", profile.get("attackWins", 0))
+            t2_c2.metric("Defense Wins", profile.get("defenseWins", 0))
             
             donated = profile.get("donations", 0)
             received = profile.get("donationsReceived", 0)
             ratio = round(donated / received, 2) if received > 0 else donated
-            c5.metric("Donation Ratio", f"{ratio}x", help=f"{donated} Donated / {received} Received")
+            
+            t2_c3.metric("Troops Donated", donated)
+            t2_c4.metric("Troops Received", received)
+            t2_c5.metric("Donation Ratio", f"{ratio}x")
+
+            if home_heroes:
+                st.markdown("#### 👑 Hero Altar")
+                h_cols = st.columns(len(home_heroes))
+                for idx, h in enumerate(home_heroes):
+                    h_cols[idx].metric(
+                        label=h["Name"],
+                        value=f"Lvl {h['Level']}",
+                        delta="MAXED" if h["IsMax"] else f"Cap: {h['Max']}",
+                        delta_color="normal" if h["IsMax"] else "off"
+                    )
 
             st.divider()
 
@@ -306,12 +331,12 @@ elif app_mode == "🏰 Clan & Raid Auditor":
             st.session_state.scanned_clan = asyncio.run(process_clan_auditor(target_tag, input_type, COC_TOKEN))
 
     if st.session_state.scanned_clan:
-        clan, slacker_df, roster_df, war_df, error = st.session_state.scanned_clan
+        clan, slacker_df, roster_df, war_df, clan_units, error = st.session_state.scanned_clan
 
         if error:
             st.error(error)
         else:
-            st.success(f"Audit Complete for Clan: {clan.get('name')}")
+            st.success(f"Audit Complete for Clan: **{clan.get('name')}**")
 
             st.divider()
             st.markdown("### 🔍 Quick Member Inspector")
@@ -351,14 +376,16 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                 st.caption(f"**Clan Level {clan_lvl}** | Active Donation Boost: **+{boost} Levels**")
                 
                 req_col1, req_col2, req_col3 = st.columns([2, 1, 1])
-                with req_col1: unit_name = st.selectbox("Select Unit to Request:", options=COC_UNITS)
+                
+                # UPDATED: Now dynamically populated directly from the live clan scan!
+                with req_col1: unit_name = st.selectbox("Select Unit to Request:", options=clan_units if clan_units else ["No units found"])
                 with req_col2: desired_lvl = st.number_input("Minimum Level:", min_value=1, value=1, step=1)
                 with req_col3: 
                     st.write(""); st.write("")
                     is_max = st.checkbox("🔥 I just want MAX", value=False)
                 
                 if st.button("Search Donors", type="secondary"):
-                    if unit_name:
+                    if unit_name and unit_name != "No units found":
                         member_list = clan.get("memberList", [])
                         with st.spinner(f"Scanning {len(member_list)} loadouts for {unit_name}..."):
                             tags = [m["tag"] for m in member_list]
@@ -370,4 +397,4 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                             else:
                                 st.warning(f"Nobody in the clan can donate that level of {unit_name}. Time to recruit better players.")
                     else:
-                        st.error("Please enter a troop, spell, or siege machine name.")
+                        st.error("Please enter a valid unit name.")
