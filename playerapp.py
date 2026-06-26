@@ -338,7 +338,7 @@ if app_mode == "🕵️ Player Inspector":
             st.divider()
 
             # --- NEW RANKED DEFENSE SECTION ---
-            st.markdown("#### 🛡️ Recent Ranked Defenses (Who Attacked You)")
+            st.markdown("#### 🛡️ Recent Ranked Defenses (Who Attacked Them)")
             
             if is_maintenance:
                 st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break when defense history is wiped.")
