@@ -5,11 +5,11 @@ import aiohttp
 import pandas as pd
 import streamlit as st
 
-# SECURE CONFIG: Pulls from Streamlit Cloud Secrets vault natively.
+# SECURE CONFIG
 COC_TOKEN = st.secrets["COC_TOKEN"]
 BASE_URL = "https://cocproxy.royaleapi.dev/v1"
 
-# Maps Super Troops to their base unit so the live API search checks the real level
+# Maps Super Troops to their base unit
 SUPER_TROOP_MAP = {
     "super barbarian": "barbarian",
     "super archer": "archer",
@@ -29,6 +29,31 @@ SUPER_TROOP_MAP = {
     "super miner": "miner",
     "super hog rider": "hog rider"
 }
+
+# Blacklist to stop pets from showing up in the donation finder
+PET_NAMES = {
+    "L.A.S.S.I", "Mighty Yak", "Electro Owl", "Unicorn", 
+    "Diggy", "Poison Lizard", "Phoenix", "Spirit Fox", "Angry Jelly"
+}
+
+# Hardcoded Hero Caps per Town Hall level
+HERO_TH_CAPS = {
+    "Barbarian King": {4: 1, 5: 1, 6: 1,7: 10, 8: 20, 9: 30, 10: 40, 11: 50, 12: 65, 13: 75, 14: 80, 15: 90, 16: 95, 17: 100},
+    "Archer Queen": {9: 30, 10: 40, 11: 50, 12: 65, 13: 75, 14: 80, 15: 90, 16: 95, 17: 100},
+    "Grand Warden": {11: 20, 12: 40, 13: 50, 14: 55, 15: 65, 16: 70, 17: 75},
+    "Royal Champion": {13: 25, 14: 30, 15: 40, 16: 45, 17: 50}
+    "Minion Prince": {9: 10, 10: 20, 11: 30, 12: 40, 13: 50, 14: 60, 15: 70, 16: 80, 17: 90}
+    "Dragon Duke": {15: 10, 16: 15, 17:20}
+}
+
+def get_th_hero_max(hero_name, th_level, global_max):
+    caps = HERO_TH_CAPS.get(hero_name, {})
+    if th_level in caps:
+        return caps[th_level]
+    # Future proofing: If they are TH17+ and we haven't updated the dict, just return global max
+    if th_level > max(caps.keys(), default=0):
+        return global_max
+    return global_max
 
 # ==========================================
 #         PAGE CONFIG & SESSION STATE
@@ -87,6 +112,8 @@ async def process_player_inspector(tag, token):
         profile_data, error = await fetch_api(session, f"players/{format_tag(tag)}", headers)
         if error: return None, None, None, None, None, error
 
+        th_level = profile_data.get("townHallLevel", 1)
+
         equipment_list = []
         for eq in profile_data.get("heroEquipment", []):
             if eq.get("village") == "home":
@@ -99,11 +126,15 @@ async def process_player_inspector(tag, token):
         home_heroes = []
         hero_sum = 0
         for h in profile_data.get("heroes", []):
-            if h.get("village") == "home":
+            if h.get("village") == "home" and h["name"] not in PET_NAMES:
                 hero_sum += h["level"]
+                th_max = get_th_hero_max(h["name"], th_level, h["maxLevel"])
+                
                 home_heroes.append({
-                    "Name": h["name"], "Level": h["level"], "Max": h["maxLevel"],
-                    "IsMax": (h["level"] == h["maxLevel"])
+                    "Name": h["name"], 
+                    "Level": h["level"], 
+                    "TH_Max": th_max,
+                    "IsMax": (h["level"] >= th_max)
                 })
 
         battle_log, _ = await fetch_api(session, f"players/{format_tag(tag)}/battlelog", headers)
@@ -130,8 +161,7 @@ async def process_clan_auditor(tag, input_type, token):
         if err: return None, None, None, None, None, err
         master_roster = clan_data.get("memberList", [])
 
-        # --- DYNAMIC UNIT GENERATOR ---
-        # Grabs top 3 highest EXP members to dynamically build the clan's exact available unit dictionary
+        # Dynamic Unit Generator (Excludes Pets)
         top_3_tags = [m["tag"] for m in sorted(master_roster, key=lambda x: x.get("expLevel", 0), reverse=True)[:3]]
         profile_tasks = [fetch_player_profile(session, t, headers) for t in top_3_tags]
         top_profiles = await asyncio.gather(*profile_tasks)
@@ -140,10 +170,9 @@ async def process_clan_auditor(tag, input_type, token):
         for p in top_profiles:
             if not p: continue
             for item in p.get("troops", []) + p.get("spells", []):
-                if item.get("village") == "home":
+                if item.get("village") == "home" and item["name"] not in PET_NAMES:
                     live_clan_units.add(item["name"])
         sorted_clan_units = sorted(list(live_clan_units))
-        # ------------------------------
 
         war_data, _ = await fetch_api(session, f"clans/{format_tag(clan_tag)}/warlog", headers)
         war_log = []
@@ -298,7 +327,7 @@ if app_mode == "🕵️ Player Inspector":
                     h_cols[idx].metric(
                         label=h["Name"],
                         value=f"Lvl {h['Level']}",
-                        delta="MAXED" if h["IsMax"] else f"Cap: {h['Max']}",
+                        delta="TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}",
                         delta_color="normal" if h["IsMax"] else "off"
                     )
 
@@ -377,7 +406,6 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                 
                 req_col1, req_col2, req_col3 = st.columns([2, 1, 1])
                 
-                # UPDATED: Now dynamically populated directly from the live clan scan!
                 with req_col1: unit_name = st.selectbox("Select Unit to Request:", options=clan_units if clan_units else ["No units found"])
                 with req_col2: desired_lvl = st.number_input("Minimum Level:", min_value=1, value=1, step=1)
                 with req_col3: 
