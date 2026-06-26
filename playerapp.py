@@ -5,54 +5,39 @@ import aiohttp
 import pandas as pd
 import streamlit as st
 
-# SECURE CONFIG
+# ==========================================
+#         SECURE CONFIG & CONSTANTS
+# ==========================================
 COC_TOKEN = st.secrets["COC_TOKEN"]
 BASE_URL = "https://cocproxy.royaleapi.dev/v1"
 
-# Maps Super Troops to their base unit
 SUPER_TROOP_MAP = {
-    "super barbarian": "barbarian",
-    "super archer": "archer",
-    "sneaky goblin": "goblin",
-    "super giant": "giant",
-    "super wall breaker": "wall breaker",
-    "rocket balloon": "balloon",
-    "super balloon": "balloon",
-    "super wizard": "wizard",
-    "super dragon": "dragon",
-    "inferno dragon": "baby dragon",
-    "super minion": "minion",
-    "super valkyrie": "valkyrie",
-    "super witch": "witch",
-    "ice hound": "lava hound",
-    "super bowler": "bowler",
-    "super miner": "miner",
-    "super hog rider": "hog rider"
+    "super barbarian": "barbarian", "super archer": "archer", "sneaky goblin": "goblin",
+    "super giant": "giant", "super wall breaker": "wall breaker", "rocket balloon": "balloon",
+    "super balloon": "balloon", "super wizard": "wizard", "super dragon": "dragon",
+    "inferno dragon": "baby dragon", "super minion": "minion", "super valkyrie": "valkyrie",
+    "super witch": "witch", "ice hound": "lava hound", "super bowler": "bowler",
+    "super miner": "miner", "super hog rider": "hog rider"
 }
 
-# Blacklist to stop pets from showing up in the donation finder
 PET_NAMES = {
     "L.A.S.S.I", "Mighty Yak", "Electro Owl", "Unicorn", 
     "Diggy", "Poison Lizard", "Phoenix", "Spirit Fox", "Angry Jelly"
 }
 
-# Hardcoded Hero Caps per Town Hall level
 HERO_TH_CAPS = {
-    "Barbarian King": {4: 1, 5: 1, 6: 1,7: 10, 8: 20, 9: 30, 10: 40, 11: 50, 12: 65, 13: 75, 14: 80, 15: 90, 16: 95, 17: 100},
+    "Barbarian King": {4: 1, 5: 1, 6: 1, 7: 10, 8: 20, 9: 30, 10: 40, 11: 50, 12: 65, 13: 75, 14: 80, 15: 90, 16: 95, 17: 100},
     "Archer Queen": {9: 30, 10: 40, 11: 50, 12: 65, 13: 75, 14: 80, 15: 90, 16: 95, 17: 100},
     "Grand Warden": {11: 20, 12: 40, 13: 50, 14: 55, 15: 65, 16: 70, 17: 75},
     "Royal Champion": {13: 25, 14: 30, 15: 40, 16: 45, 17: 50},
     "Minion Prince": {9: 10, 10: 20, 11: 30, 12: 40, 13: 50, 14: 60, 15: 70, 16: 80, 17: 90},
-    "Dragon Duke": {15: 10, 16: 15, 17:20}
+    "Dragon Duke": {15: 10, 16: 15, 17: 20}
 }
 
 def get_th_hero_max(hero_name, th_level, global_max):
     caps = HERO_TH_CAPS.get(hero_name, {})
-    if th_level in caps:
-        return caps[th_level]
-    # Future proofing: If they are TH17+ and we haven't updated the dict, just return global max
-    if th_level > max(caps.keys(), default=0):
-        return global_max
+    if th_level in caps: return caps[th_level]
+    if th_level > max(caps.keys(), default=0): return global_max
     return global_max
 
 # ==========================================
@@ -64,13 +49,9 @@ if "app_mode" not in st.session_state: st.session_state.app_mode = "🕵️ Play
 if "target_player_tag" not in st.session_state: st.session_state.target_player_tag = ""
 if "target_clan_tag" not in st.session_state: st.session_state.target_clan_tag = ""
 if "trigger_fetch" not in st.session_state: st.session_state.trigger_fetch = False
-
 if "scanned_player" not in st.session_state: st.session_state.scanned_player = None
 if "scanned_clan" not in st.session_state: st.session_state.scanned_clan = None
 
-# ==========================================
-#         NAVIGATION CALLBACKS
-# ==========================================
 def jump_to_clan(clan_tag):
     st.session_state.target_clan_tag = clan_tag
     st.session_state.app_mode = "🏰 Clan & Raid Auditor"
@@ -110,10 +91,11 @@ async def process_player_inspector(tag, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     async with aiohttp.ClientSession() as session:
         profile_data, error = await fetch_api(session, f"players/{format_tag(tag)}", headers)
-        if error: return None, None, None, None, None, error
+        if error: return None, None, None, None, None, None, False, error
 
         th_level = profile_data.get("townHallLevel", 1)
 
+        # Equipment Setup
         equipment_list = []
         for eq in profile_data.get("heroEquipment", []):
             if eq.get("village") == "home":
@@ -123,29 +105,45 @@ async def process_player_inspector(tag, token):
                 })
         eq_df = pd.DataFrame(equipment_list).sort_values(by="Level", ascending=False) if equipment_list else pd.DataFrame()
 
+        # Hero Setup
         home_heroes = []
         hero_sum = 0
         for h in profile_data.get("heroes", []):
             if h.get("village") == "home" and h["name"] not in PET_NAMES:
                 hero_sum += h["level"]
                 th_max = get_th_hero_max(h["name"], th_level, h["maxLevel"])
-                
                 home_heroes.append({
-                    "Name": h["name"], 
-                    "Level": h["level"], 
-                    "TH_Max": th_max,
-                    "IsMax": (h["level"] >= th_max)
+                    "Name": h["name"], "Level": h["level"], "TH_Max": th_max, "IsMax": (h["level"] >= th_max)
                 })
 
+        # Battle Log Setup
         battle_log, _ = await fetch_api(session, f"players/{format_tag(tag)}/battlelog", headers)
+        
+        is_maintenance = (battle_log is not None and "items" in battle_log and len(battle_log["items"]) == 0)
         army_url = None
+        ranked_defenses = []
+
         if battle_log and "items" in battle_log:
+            # 1. Fetch most used offensive army
             codes = [item.get("armyShareCode") for item in battle_log["items"] if item.get("armyShareCode") and item.get("attack")][:10]
             if codes:
                 most_common_code, _ = collections.Counter(codes).most_common(1)[0]
                 army_url = f"https://link.clashofclans.com/en?action=CopyArmy&army={most_common_code}"
 
-        return profile_data, eq_df, army_url, home_heroes, hero_sum, None
+            # 2. Extract Ranked Defenses (Who attacked the player)
+            for item in battle_log["items"]:
+                if item.get("battleType") == "ranked" and not item.get("attack"):
+                    code = item.get("armyShareCode")
+                    ranked_defenses.append({
+                        "Opponent": item.get("opponentName", "Unknown"),
+                        "Tag": item.get("opponentPlayerTag", ""),
+                        "TH": item.get("opponentTownHallLevel", ""),
+                        "Stars": item.get("stars", 0),
+                        "Destruction": f"{item.get('destructionPercentage', 0)}%",
+                        "Army Link": f"https://link.clashofclans.com/en?action=CopyArmy&army={code}" if code else None
+                    })
+
+        return profile_data, eq_df, army_url, home_heroes, hero_sum, ranked_defenses, is_maintenance, None
 
 async def process_clan_auditor(tag, input_type, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
@@ -161,7 +159,6 @@ async def process_clan_auditor(tag, input_type, token):
         if err: return None, None, None, None, None, err
         master_roster = clan_data.get("memberList", [])
 
-        # Dynamic Unit Generator (Excludes Pets)
         top_3_tags = [m["tag"] for m in sorted(master_roster, key=lambda x: x.get("expLevel", 0), reverse=True)[:3]]
         profile_tasks = [fetch_player_profile(session, t, headers) for t in top_3_tags]
         top_profiles = await asyncio.gather(*profile_tasks)
@@ -283,7 +280,7 @@ if app_mode == "🕵️ Player Inspector":
             st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN))
 
     if st.session_state.scanned_player:
-        profile, eq_df, army_url, home_heroes, hero_sum, error = st.session_state.scanned_player
+        profile, eq_df, army_url, home_heroes, hero_sum, ranked_defenses, is_maintenance, error = st.session_state.scanned_player
 
         if error:
             st.error(error)
@@ -332,12 +329,53 @@ if app_mode == "🕵️ Player Inspector":
                     )
 
             st.divider()
-
-            if army_url: st.info(f"⚔️ **Most Used Army Detected!** [Click here to copy to game]({army_url})")
+            
+            if army_url: st.info(f"⚔️ **Most Used Offensive Army Detected!** [Click here to copy to game]({army_url})")
             else: st.warning("No recent offensive army data found.")
 
+            st.divider()
+
+            # --- NEW RANKED DEFENSE SECTION ---
+            st.markdown("#### 🛡️ Recent Ranked Defenses (Who Attacked You)")
+            
+            if is_maintenance:
+                st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break when defense history is wiped.")
+
+            if ranked_defenses:
+                show_3star_only = st.checkbox("Filter: Show only 3-Star Defenses")
+                df_defenses = pd.DataFrame(ranked_defenses)
+                
+                if show_3star_only:
+                    df_defenses = df_defenses[df_defenses["Stars"] == 3]
+
+                if not df_defenses.empty:
+                    st.dataframe(
+                        df_defenses,
+                        column_config={
+                            "Army Link": st.column_config.LinkColumn("Copy Army", display_text="🔗 Copy"),
+                            "Tag": st.column_config.TextColumn("Player Tag")
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    # Target specific opponent profile
+                    st.markdown("##### 🔎 Investigate Opponent")
+                    col_tgt1, col_tgt2 = st.columns([3, 1])
+                    with col_tgt1:
+                        target_opp = st.selectbox("Select opponent tag to inspect:", df_defenses["Tag"].unique())
+                    with col_tgt2:
+                        st.write(""); st.write("")
+                        st.button("Inspect Profile", on_click=jump_to_player, args=(target_opp,), use_container_width=True)
+                else:
+                    st.warning("No 3-star defenses found in the current logs.")
+            elif not is_maintenance:
+                st.warning("No recent ranked defensive data found.")
+
+            st.divider()
+
             if not eq_df.empty:
-                st.write("### Hero Equipment Loadout")
+                st.write("### 🔨 Hero Equipment Loadout")
                 st.dataframe(eq_df, width="stretch", hide_index=True)
             else: st.write("No Hero Equipment found.")
 
