@@ -318,13 +318,19 @@ with st.sidebar:
     st.subheader("⚡ Fund the Elixir Pipeline")
     st.caption("Keep the API scraping engine running securely with 0% middleman fees.")
     
-    # Universal UPI deep link targeting your verified alias number
-    upi_link = "upi://pay?pa=773355375@upi&pn=Victorious Clash&cu=INR"
+    # FIX: Replaced the space in the name with %20 so Streamlit markdown doesn't break
+    upi_link = "upi://pay?pa=773355375@upi&pn=Victorious%20Clash&cu=INR"
     
     st.markdown(
         f'[![Pay via UPI](https://img.shields.io/badge/Donate_via_UPI-Instant_Transfer-orange?style=for-the-badge&logo=upi&logoColor=white)]({upi_link})'
     )
-    st.caption("ℹ️ Tapping opens your phone's primary payment app pre-filled.")
+    st.caption("🇮🇳 **Indian Players Only.** Tapping opens your payment app.")
+
+    # Hide the clunky international explanation under a clean expander
+    with st.expander("🌍 Wait, what if I'm not from India?"):
+        st.write("Since the global banking system is a bureaucratic nightmare, I literally cannot accept international cards right now without sacrificing my firstborn to regulatory fees. So, this shiny button only works for the Indian UPI network.")
+        st.write("If you are a high-roller from overseas and absolutely *must* throw money at me to keep the servers alive, drop an email to **victorious.onclash@gmail.com** and we'll figure out a black-market elixir trade.")
+
 
 # ------------------------------------------
 # MODULE 1: PLAYER INSPECTOR
