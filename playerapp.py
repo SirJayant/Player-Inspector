@@ -116,7 +116,7 @@ async def process_player_inspector(tag, token):
                     "Name": h["name"], "Level": h["level"], "TH_Max": th_max, "IsMax": (h["level"] >= th_max)
                 })
 
-        # Battle Log Setup
+# Battle Log Setup
         battle_log, _ = await fetch_api(session, f"players/{format_tag(tag)}/battlelog", headers)
         
         is_maintenance = (battle_log is not None and "items" in battle_log and len(battle_log["items"]) == 0)
@@ -130,9 +130,10 @@ async def process_player_inspector(tag, token):
                 most_common_code, _ = collections.Counter(codes).most_common(1)[0]
                 army_url = f"https://link.clashofclans.com/en?action=CopyArmy&army={most_common_code}"
 
-            # 2. Extract Ranked Defenses (Who attacked the player)
-            for item in battle_log["items"]:
-                if item.get("battleType") == "ranked" and not item.get("attack"):
+            # 2. Extract Ranked & Legend Defenses (Who attacked the player)
+            # We use reversed() to iterate from the bottom of the JSON up, putting the newest attacks at the top.
+            for item in reversed(battle_log["items"]):
+                if item.get("battleType") in ["ranked", "legend"] and not item.get("attack"):
                     code = item.get("armyShareCode")
                     ranked_defenses.append({
                         "Opponent": item.get("opponentName", "Unknown"),
@@ -140,6 +141,7 @@ async def process_player_inspector(tag, token):
                         "TH": item.get("opponentTownHallLevel", ""),
                         "Stars": item.get("stars", 0),
                         "Destruction": f"{item.get('destructionPercentage', 0)}%",
+                        "Type": str(item.get("battleType")).capitalize(), # Optional: Shows 'Ranked' or 'Legend'
                         "Army Link": f"https://link.clashofclans.com/en?action=CopyArmy&army={code}" if code else None
                     })
 
