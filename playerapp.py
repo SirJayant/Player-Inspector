@@ -190,8 +190,14 @@ async def process_player_inspector(tag, token):
 
         if battle_log and "items" in battle_log:
             # 1. Fetch most used offensive army using the Smart Decoder
-            codes = [item.get("armyShareCode") for item in battle_log["items"] 
-                     if item.get("armyShareCode") and item.get("attack")]
+            # ADDED: Strict filter so we only look at 'ranked' or 'legend' attacks
+            codes = [
+                item.get("armyShareCode") 
+                for item in battle_log["items"] 
+                if item.get("armyShareCode") 
+                and item.get("attack") 
+                and item.get("battleType") in ["ranked", "legend"]
+            ]
             
             if codes:
                 best_code = get_smart_army_code(codes)
