@@ -4,6 +4,8 @@ import urllib.parse
 import aiohttp
 import pandas as pd
 import streamlit as st
+import re
+from collections import defaultdict, Counter
 
 # ==========================================
 #         SECURE CONFIG & CONSTANTS
@@ -72,6 +74,69 @@ def format_tag(tag):
     if not tag.startswith("#"): tag = "#" + tag
     return urllib.parse.quote(tag)
 
+def get_smart_army_code(share_codes):
+    """
+    Parses a list of army share codes, groups them by their core strategy (IDs used), 
+    and returns the heaviest single deployment to avoid partial-army links.
+    """
+    if not share_codes:
+        return None
+        
+    # Dictionary to hold our buckets: { fingerprint_set: [(weight, code), ...] }
+    strategy_groups = defaultdict(list)
+    
+    for code in share_codes:
+        # 1. Regex to extract just the Troops (u) and Spells (s) segments
+        # This matches 'u' or 's' followed by any numbers, 'x', and hyphens
+        u_match = re.search(r'u([0-9x\-]+)', code)
+        s_match = re.search(r's([0-9x\-]+)', code)
+        
+        u_str = u_match.group(1) if u_match else ""
+        s_str = s_match.group(1) if s_match else ""
+        
+        # Combine and split into individual "[count]x[id]" strings
+        combined_str = f"{u_str}-{s_str}".strip('-')
+        items = [item for item in combined_str.split('-') if 'x' in item]
+        
+        ids = set()
+        total_weight = 0
+        
+        # 2. Unpack quantities and IDs
+        for item in items:
+            parts = item.split('x')
+            if len(parts) == 2:
+                try:
+                    count = int(parts[0])
+                    unit_id = int(parts[1])
+                    
+                    ids.add(unit_id)
+                    total_weight += count
+                except ValueError:
+                    continue
+        
+        # 3. Create the fingerprint (frozenset makes the set hashable for dict keys)
+        if ids:
+            fingerprint = frozenset(ids)
+            strategy_groups[fingerprint].append((total_weight, code))
+
+    # Fallback: if regex parsing failed on all codes, just return the most common code
+    if not strategy_groups:
+        return Counter(share_codes).most_common(1)[0][0]
+
+    # 4. Find the most used strategy bucket
+    # Primary sort: Number of attacks using this strategy. 
+    # Tiebreaker: The combined weight of all attacks in the bucket.
+    best_fingerprint = max(
+        strategy_groups.keys(), 
+        key=lambda f: (len(strategy_groups[f]), sum(w for w, c in strategy_groups[f]))
+    )
+    
+    # 5. From the winning bucket, pick the code with the absolute highest deployed weight
+    best_group = strategy_groups[best_fingerprint]
+    heaviest_code = max(best_group, key=lambda x: x[0])[1] # x[0] is weight, x[1] is code
+    
+    return heaviest_code
+
 async def fetch_api(session, endpoint, headers):
     url = f"{BASE_URL}/{endpoint}"
     async with session.get(url, headers=headers) as response:
@@ -124,11 +189,14 @@ async def process_player_inspector(tag, token):
         ranked_defenses = []
 
         if battle_log and "items" in battle_log:
-            # 1. Fetch most used offensive army
-            codes = [item.get("armyShareCode") for item in battle_log["items"] if item.get("armyShareCode") and item.get("attack")][:10]
+            # 1. Fetch most used offensive army using the Smart Decoder
+            codes = [item.get("armyShareCode") for item in battle_log["items"] 
+                     if item.get("armyShareCode") and item.get("attack")]
+            
             if codes:
-                most_common_code, _ = collections.Counter(codes).most_common(1)[0]
-                army_url = f"https://link.clashofclans.com/en?action=CopyArmy&army={most_common_code}"
+                best_code = get_smart_army_code(codes)
+                if best_code:
+                    army_url = f"https://link.clashofclans.com/en?action=CopyArmy&army={best_code}"
 
             # 2. Extract Ranked & Legend Defenses (Who attacked the player)
             # We use reversed() to iterate from the bottom of the JSON up, putting the newest attacks at the top.
