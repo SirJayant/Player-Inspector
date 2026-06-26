@@ -2,3 +2,4 @@ aiohttp
 streamlit
 pandas
 dotenv
+qrcode[pil]
