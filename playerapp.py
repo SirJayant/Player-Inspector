@@ -5,7 +5,6 @@ import aiohttp
 import pandas as pd
 import streamlit as st
 import re
-from collections import defaultdict, Counter
 
 # ==========================================
 #         SECURE CONFIG & CONSTANTS
@@ -74,69 +73,6 @@ def format_tag(tag):
     if not tag.startswith("#"): tag = "#" + tag
     return urllib.parse.quote(tag)
 
-def get_smart_army_code(share_codes):
-    """
-    Parses a list of army share codes, groups them by their core strategy (IDs used), 
-    and returns the heaviest single deployment to avoid partial-army links.
-    """
-    if not share_codes:
-        return None
-        
-    # Dictionary to hold our buckets: { fingerprint_set: [(weight, code), ...] }
-    strategy_groups = defaultdict(list)
-    
-    for code in share_codes:
-        # 1. Regex to extract just the Troops (u) and Spells (s) segments
-        # This matches 'u' or 's' followed by any numbers, 'x', and hyphens
-        u_match = re.search(r'u([0-9x\-]+)', code)
-        s_match = re.search(r's([0-9x\-]+)', code)
-        
-        u_str = u_match.group(1) if u_match else ""
-        s_str = s_match.group(1) if s_match else ""
-        
-        # Combine and split into individual "[count]x[id]" strings
-        combined_str = f"{u_str}-{s_str}".strip('-')
-        items = [item for item in combined_str.split('-') if 'x' in item]
-        
-        ids = set()
-        total_weight = 0
-        
-        # 2. Unpack quantities and IDs
-        for item in items:
-            parts = item.split('x')
-            if len(parts) == 2:
-                try:
-                    count = int(parts[0])
-                    unit_id = int(parts[1])
-                    
-                    ids.add(unit_id)
-                    total_weight += count
-                except ValueError:
-                    continue
-        
-        # 3. Create the fingerprint (frozenset makes the set hashable for dict keys)
-        if ids:
-            fingerprint = frozenset(ids)
-            strategy_groups[fingerprint].append((total_weight, code))
-
-    # Fallback: if regex parsing failed on all codes, just return the most common code
-    if not strategy_groups:
-        return Counter(share_codes).most_common(1)[0][0]
-
-    # 4. Find the most used strategy bucket
-    # Primary sort: Number of attacks using this strategy. 
-    # Tiebreaker: The combined weight of all attacks in the bucket.
-    best_fingerprint = max(
-        strategy_groups.keys(), 
-        key=lambda f: (len(strategy_groups[f]), sum(w for w, c in strategy_groups[f]))
-    )
-    
-    # 5. From the winning bucket, pick the code with the absolute highest deployed weight
-    best_group = strategy_groups[best_fingerprint]
-    heaviest_code = max(best_group, key=lambda x: x[0])[1] # x[0] is weight, x[1] is code
-    
-    return heaviest_code
-
 async def fetch_api(session, endpoint, headers):
     url = f"{BASE_URL}/{endpoint}"
     async with session.get(url, headers=headers) as response:
@@ -149,10 +85,58 @@ async def fetch_player_profile(session, tag, headers):
         if response.status == 200: return await response.json()
         return None
 
+def get_smart_army_code(share_codes):
+    """
+    Groups army share codes by their core unique IDs and returns the 
+    heaviest single deployment to filter out incomplete attacks.
+    """
+    if not share_codes:
+        return None
+        
+    strategy_groups = collections.defaultdict(list)
+    
+    for code in share_codes:
+        u_match = re.search(r'u([0-9x\-]+)', code)
+        s_match = re.search(r's([0-9x\-]+)', code)
+        
+        u_str = u_match.group(1) if u_match else ""
+        s_str = s_match.group(1) if s_match else ""
+        
+        combined_str = f"{u_str}-{s_str}".strip('-')
+        items = [item for item in combined_str.split('-') if 'x' in item]
+        
+        ids = set()
+        total_weight = 0
+        
+        for item in items:
+            parts = item.split('x')
+            if len(parts) == 2:
+                try:
+                    count = int(parts[0])
+                    unit_id = int(parts[1])
+                    ids.add(unit_id)
+                    total_weight += count
+                except ValueError:
+                    continue
+        
+        if ids:
+            fingerprint = frozenset(ids)
+            strategy_groups[fingerprint].append((total_weight, code))
+
+    if not strategy_groups:
+        return collections.Counter(share_codes).most_common(1)[0][0]
+
+    best_fingerprint = max(
+        strategy_groups.keys(), 
+        key=lambda f: (len(strategy_groups[f]), sum(w for w, c in strategy_groups[f]))
+    )
+    
+    return max(strategy_groups[best_fingerprint], key=lambda x: x[0])[1]
+
 # ==========================================
 #         CORE LOGIC ENGINES
 # ==========================================
-async def process_player_inspector(tag, token):
+async def process_player_inspector(tag, token, include_unranked=False):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     async with aiohttp.ClientSession() as session:
         profile_data, error = await fetch_api(session, f"players/{format_tag(tag)}", headers)
@@ -160,7 +144,6 @@ async def process_player_inspector(tag, token):
 
         th_level = profile_data.get("townHallLevel", 1)
 
-        # Equipment Setup
         equipment_list = []
         for eq in profile_data.get("heroEquipment", []):
             if eq.get("village") == "home":
@@ -170,7 +153,6 @@ async def process_player_inspector(tag, token):
                 })
         eq_df = pd.DataFrame(equipment_list).sort_values(by="Level", ascending=False) if equipment_list else pd.DataFrame()
 
-        # Hero Setup
         home_heroes = []
         hero_sum = 0
         for h in profile_data.get("heroes", []):
@@ -181,7 +163,6 @@ async def process_player_inspector(tag, token):
                     "Name": h["name"], "Level": h["level"], "TH_Max": th_max, "IsMax": (h["level"] >= th_max)
                 })
 
-# Battle Log Setup
         battle_log, _ = await fetch_api(session, f"players/{format_tag(tag)}/battlelog", headers)
         
         is_maintenance = (battle_log is not None and "items" in battle_log and len(battle_log["items"]) == 0)
@@ -189,23 +170,17 @@ async def process_player_inspector(tag, token):
         ranked_defenses = []
 
         if battle_log and "items" in battle_log:
-            # 1. Fetch most used offensive army using the Smart Decoder
-            # ADDED: Strict filter so we only look at 'ranked' or 'legend' attacks
-            codes = [
-                item.get("armyShareCode") 
-                for item in battle_log["items"] 
-                if item.get("armyShareCode") 
-                and item.get("attack") 
-                and item.get("battleType") in ["ranked", "legend"]
-            ]
+            codes = []
+            for item in battle_log["items"]:
+                if item.get("armyShareCode") and item.get("attack"):
+                    b_type = item.get("battleType")
+                    if b_type in ["ranked", "legend"] or include_unranked:
+                        codes.append(item.get("armyShareCode"))
             
             if codes:
                 best_code = get_smart_army_code(codes)
-                if best_code:
-                    army_url = f"https://link.clashofclans.com/en?action=CopyArmy&army={best_code}"
+                army_url = f"https://link.clashofclans.com/en?action=CopyArmy&army={best_code}"
 
-            # 2. Extract Ranked & Legend Defenses (Who attacked the player)
-            # We use reversed() to iterate from the bottom of the JSON up, putting the newest attacks at the top.
             for item in reversed(battle_log["items"]):
                 if item.get("battleType") in ["ranked", "legend"] and not item.get("attack"):
                     code = item.get("armyShareCode")
@@ -215,7 +190,7 @@ async def process_player_inspector(tag, token):
                         "TH": item.get("opponentTownHallLevel", ""),
                         "Stars": item.get("stars", 0),
                         "Destruction": f"{item.get('destructionPercentage', 0)}%",
-                        "Type": str(item.get("battleType")).capitalize(), # Optional: Shows 'Ranked' or 'Legend'
+                        "Type": str(item.get("battleType")).capitalize(),
                         "Army Link": f"https://link.clashofclans.com/en?action=CopyArmy&army={code}" if code else None
                     })
 
@@ -345,7 +320,9 @@ if app_mode == "🕵️ Player Inspector":
     st.subheader("🕵️ Player Inspector")
 
     col1, col2 = st.columns([3, 1])
-    with col1: target_tag = st.text_input("Enter Player Tag:", key="target_player_tag", placeholder="#QYJ89QR")
+    with col1: 
+        target_tag = st.text_input("Enter Player Tag:", key="target_player_tag", placeholder="#QYJ89QR")
+        include_unranked = st.checkbox("Include Unranked (Farming/Casual) Attacks in Army Finder", value=False)
     with col2:
         st.write(""); st.write("")
         inspect_btn = st.button("Inspect Player", width="stretch", type="primary")
@@ -353,7 +330,7 @@ if app_mode == "🕵️ Player Inspector":
     if (inspect_btn or st.session_state.trigger_fetch) and target_tag:
         st.session_state.trigger_fetch = False
         with st.spinner("Infiltrating Supercell Servers..."):
-            st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN))
+            st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN, include_unranked))
 
     if st.session_state.scanned_player:
         profile, eq_df, army_url, home_heroes, hero_sum, ranked_defenses, is_maintenance, error = st.session_state.scanned_player
@@ -406,36 +383,34 @@ if app_mode == "🕵️ Player Inspector":
 
             st.divider()
             
-            if army_url: st.info(f"⚔️ **Most Used Offensive Army Detected!** [Click here to copy to game]({army_url})")
-            else: st.warning("No recent offensive army data found.")
+            if army_url: 
+                st.info(f"⚔️ **Most Used {'All' if include_unranked else 'Ranked/Legend'} Army Detected!** [Click here to copy to game]({army_url})")
+            else: 
+                st.warning("No offensive army data found.")
 
             st.divider()
 
-            # --- NEW RANKED DEFENSE SECTION ---
-            st.markdown("#### 🛡️ Recent Ranked Defenses (Who Attacked Them)")
-            
+            st.markdown("#### 🛡️ Recent Ranked/Legend Defenses (Who Attacked You)")
             if is_maintenance:
                 st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break when defense history is wiped.")
 
             if ranked_defenses:
                 show_3star_only = st.checkbox("Filter: Show only 3-Star Defenses")
                 df_defenses = pd.DataFrame(ranked_defenses)
-                
-                if show_3star_only:
+                if show_3star_only: 
                     df_defenses = df_defenses[df_defenses["Stars"] == 3]
 
                 if not df_defenses.empty:
                     st.dataframe(
-                        df_defenses,
+                        df_defenses, 
                         column_config={
-                            "Army Link": st.column_config.LinkColumn("Copy Army", display_text="🔗 Copy"),
+                            "Army Link": st.column_config.LinkColumn("Copy Army", display_text="🔗 Copy"), 
                             "Tag": st.column_config.TextColumn("Player Tag")
-                        },
-                        use_container_width=True,
+                        }, 
+                        use_container_width=True, 
                         hide_index=True
                     )
                     
-                    # Target specific opponent profile
                     st.markdown("##### 🔎 Investigate Opponent")
                     col_tgt1, col_tgt2 = st.columns([3, 1])
                     with col_tgt1:
@@ -446,7 +421,7 @@ if app_mode == "🕵️ Player Inspector":
                 else:
                     st.warning("No 3-star defenses found in the current logs.")
             elif not is_maintenance:
-                st.warning("No recent ranked defensive data found.")
+                st.warning("No recent defensive data found.")
 
             st.divider()
 
