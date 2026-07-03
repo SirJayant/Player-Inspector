@@ -21,10 +21,8 @@ HERO_TH_CAPS = {
     "Dragon Duke": {15: 10, 16: 15, 17: 20}
 }
 
-def get_th_hero_max(hero_name: str, th_level: int, global_max: int) -> int:
+def get_th_hero_max(hero_name, th_level, global_max):
     caps = HERO_TH_CAPS.get(hero_name, {})
-    if th_level in caps:
-        return caps[th_level]
-    if th_level > max(caps.keys(), default=0):
-        return global_max
+    if th_level in caps: return caps[th_level]
+    if th_level > max(caps.keys(), default=0): return global_max
     return global_max
