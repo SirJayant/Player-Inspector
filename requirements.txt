@@ -1,6 +1,4 @@
-aiohttp
 streamlit
 pandas
-dotenv
-qrcode>=7.4.2
-pillow>=10.0.0
+aiohttp
+qrcode[pil]
