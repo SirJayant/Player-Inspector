@@ -6,11 +6,11 @@ An open-source, high-performance analytics and structural auditing framework for
 
 ## 🔒 The Transparency Guarantee (Why You Can Trust This Tool)
 
-In the gaming community, hyper-vigilance against phishing and token-stealing scams is fully justified. We built Clash Intel to be 100% open-source, auditable, and secure by design.
+In the gaming community, hyper-vigilance against phishing and token-stealing scams is fully justified. I built Clash Intel to be 100% open-source, auditable, and secure by design.
 
 * **Zero Middlemen & No Harvesting:** This tool does not have a backend database, user tracking, or credential logging. All network requests go directly from your running instance to Supercell's official API via the standard RoyaleAPI CORS proxy layer.
 * **Bring Your Own Key (BYOK):** When running this tool locally, you authenticate using your own personal Supercell API Token generated directly from developer.clashofclans.com. We never see, touch, or transmit your credentials.
-* **Open Architecture:** Every line of code—from the asynchronous scraper to the UI rendering—is public. You are encouraged to inspect the repository files to verify exactly where your network traffic goes.
+* **Open Architecture:** Every line of code from the asynchronous scraper to the UI rendering is public. You are encouraged to inspect the repository files to verify exactly where your network traffic goes.
 
 ---
 
@@ -49,7 +49,7 @@ streamlit run app.py
 
 ### 4. Authenticate
 
-Open the local URL generated in your terminal (usually http://localhost:8501). In the sidebar, paste your developer token from Supercell. That's it—you are running a private, isolated analytics node.
+Open the local URL generated in your terminal (usually http://localhost:8501). In the sidebar, paste your developer token from Supercell. 
 
 ---
 
