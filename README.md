@@ -1,66 +1,76 @@
 # 🛡️ Clash Intel by VICTORIOUS
 
-An open-source, high-performance analytics and structural auditing framework for Clash of Clans players and clan leaders. Built with Python, Asynchronous I/O, and Streamlit.
+Honestly? I built this tool out of pure interest and a massive dose of vibe-coding late at night. I wanted a cleaner, smarter way to look at my clan's stats, track who is slacking on raid weekends, and see who can actually donate max super troops without guessing. 
+
+Because it's a home-brewed tool, I wanted to make it 100% open-source so the community can use it, tweak it, and build on it.
 
 ---
 
-## 🔒 The Transparency Guarantee (Why You Can Trust This Tool)
+## 🔒 The Scam-Free Guarantee (Read the Code Yourself)
 
-In the gaming community, hyper-vigilance against phishing and token-stealing scams is fully justified. I built Clash Intel to be 100% open-source, auditable, and secure by design.
+Gaming communities are rightfully paranoid about phishing, credential harvesting, and account theft. Since I'm hosting a version of this online, people are bound to wonder if it's a trap. 
 
-* **Zero Middlemen & No Harvesting:** This tool does not have a backend database, user tracking, or credential logging. All network requests go directly from your running instance to Supercell's official API via the standard RoyaleAPI CORS proxy layer.
-* **Bring Your Own Key (BYOK):** When running this tool locally, you authenticate using your own personal Supercell API Token generated directly from developer.clashofclans.com. We never see, touch, or transmit your credentials.
-* **Open Architecture:** Every line of code from the asynchronous scraper to the UI rendering is public. You are encouraged to inspect the repository files to verify exactly where your network traffic goes.
+Here is exactly why this tool cannot steal your data:
 
----
-
-## 🚀 Features
-
-* **🕵️ Player Inspector:** Deep-dive into account metrics, true hero power totals, equipment upgrade states, and offensive army link extraction.
-* **🏰 Clan & Raid Auditor:** Instantly generate color-coded Capital Raid Slacker Reports, track missed attacks, inspect war logs, and audit clan member activity.
-* **🎯 Ping-A-Donor:** Smart inventory scanning that calculates active clan level donation boosts (+1 or +2 levels) to find exactly which clan members can donate the maxed super troops or spells you need.
+* **No Hidden Databases:** There is no backend server. No database. No user tracking. No logging pipelines. The web traffic goes directly from the page you are looking at to the official Supercell API via the standard RoyaleAPI proxy (which everyone uses to bypass Supercell's fixed IP restriction).
+* **Bring Your Own Key (BYOK):** If you run this tool on your own machine, you don't use my credentials. You generate a completely free, private API token from developer.clashofclans.com and paste it locally. I never see it, touch it, or store it.
+* **100% Transparent:** The entire repository is right here. If you think something sketchy is happening, open up `clash_intel/client.py` and inspect the network connections yourself.
 
 ---
 
-## 💻 60-Second Local Setup
+## 🚀 Cool Stuff It Does
 
-Want to run this entirely on your own machine? You only need Python and Git.
+* **🕵️ Player Inspector:** Checks deep metrics, total aggregate hero levels, active equipment loadouts, and figures out the exact army combinations a player runs in both casual multiplayer and competitive Legend leagues.
+* **🏰 Clan & Raid Auditor:** Instantly builds a color-coded Capital Raid Slacker Report showing exactly who missed attacks and how much gold they left on the table. It also checks your latest war records.
+* **🎯 Ping-A-Donor:** Type in the troop or spell you need and the tool auto-scans your clan members' inventories. It automatically factors in your clan level donation boost (+1 or +2 levels) to tell you exactly who can cook a maxed unit for you.
 
-### 1. Clone the Repository
+---
+
+## 💻 Run It Privately in 60 Seconds
+
+If you don't want to use the live web link, you can host the whole dashboard locally on your own computer using Python and Git.
+
+### 1. Grab the code
 ```bash
 git clone [https://github.com/SirJayant/Player-Inspector.git](https://github.com/SirJayant/Player-Inspector.git)
 cd Player-Inspector
 
 ```
 
-### 2. Install Dependencies
+### 2. Grab dependencies
 
 ```bash
 pip install -r requirements.txt
 
 ```
 
-### 3. Launch the App
+### 3. Fire it up
 
 ```bash
 streamlit run app.py
 
 ```
 
-### 4. Authenticate
+### 4. Throw your key in
 
-Open the local URL generated in your terminal (usually http://localhost:8501). In the sidebar, paste your developer token from Supercell. 
+Your terminal will give you a local web link (usually http://localhost:8501). Open it, go to the sidebar, paste your Supercell developer token, and you are running your own private dashboard.
 
 ---
 
-## 🔑 For Developers: Using Streamlit Secrets (st.secrets)
+## 🔑 For Clan Leaders Hosting This for Members
 
-If you are hosting this framework on a cloud provider (like Streamlit Community Cloud) for your clan and want to provide a global token so your members don't have to input their own keys:
+If you want to deploy this app to the cloud (like Streamlit Community Cloud) so your clan members can use it easily without generating their own individual tokens, you can hide your personal key securely in the background:
 
-1. Create a `.streamlit` directory in your root folder: `mkdir -p .streamlit`
-2. Create a `secrets.toml` file inside it: `touch .streamlit/secrets.toml`
-3. Add your Supercell API key to the file:
+1. Make a streamlit folder: `mkdir -p .streamlit`
+2. Create your local secrets file: `touch .streamlit/secrets.toml`
+3. Put your token inside it:
 ```toml
-COC_TOKEN = "your_actual_jwt_token_here"
+COC_TOKEN = "your_actual_supercell_token_here"
+
+```
+
+
+
+*Note: The `.streamlit/secrets.toml` file is already listed in the `.gitignore` so you won't accidentally leak your token if you push commits back to GitHub.*
 
 ```
