@@ -73,4 +73,3 @@ COC_TOKEN = "your_actual_supercell_token_here"
 
 *Note: The `.streamlit/secrets.toml` file is already listed in the `.gitignore` so you won't accidentally leak your token if you push commits back to GitHub.*
 
-```
