@@ -64,9 +64,3 @@ If you are hosting this framework on a cloud provider (like Streamlit Community 
 COC_TOKEN = "your_actual_jwt_token_here"
 
 ```
-
-
-
-*Note: The `.streamlit/secrets.toml` file is explicitly listed in our `.gitignore` to prevent accidental credential leaking during public commits.*
-
-```
