@@ -73,7 +73,7 @@ async def process_player_inspector(tag, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     async with aiohttp.ClientSession() as session:
         profile_data, error = await fetch_api(session, f"players/{format_tag(tag)}", headers)
-        if error: return None, None, None, None, None, None, None, False, error
+        if error: return None, None, None, None, None, None, None, None, False, error
 
         th_level = profile_data.get("townHallLevel", 1)
 
@@ -103,6 +103,7 @@ async def process_player_inspector(tag, token):
         ranked_code = None
         unranked_code = None
         ranked_defenses = []
+        ranked_attacks = []
 
         if battle_log and "items" in battle_log:
             ranked_offensive_codes = []
@@ -121,21 +122,25 @@ async def process_player_inspector(tag, token):
             if unranked_offensive_codes:
                 unranked_code = get_smart_army_code(unranked_offensive_codes)
 
-            # Defensive parsing (reversed for newest first)
+            # Defensive & Offensive parsing (reversed for newest first)
             for item in reversed(battle_log["items"]):
-                if item.get("battleType") in ["ranked", "legend"] and not item.get("attack"):
+                if item.get("battleType") in ["ranked", "legend"]:
                     code = item.get("armyShareCode")
-                    ranked_defenses.append({
-                        "Opponent": item.get("opponentName", "Unknown"),
+                    record = {
+                        "Name": item.get("opponentName", "Unknown"),
                         "Tag": item.get("opponentPlayerTag", ""),
                         "TH": item.get("opponentTownHallLevel", ""),
                         "Stars": item.get("stars", 0),
                         "Destruction": f"{item.get('destructionPercentage', 0)}%",
                         "Type": str(item.get("battleType")).capitalize(),
                         "Army Link": f"https://link.clashofclans.com/en?action=CopyArmy&army={code}" if code else None
-                    })
+                    }
+                    if item.get("attack"):
+                        ranked_attacks.append(record)
+                    else:
+                        ranked_defenses.append(record)
 
-        return profile_data, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, is_maintenance, None
+        return profile_data, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, None
 
 async def process_clan_auditor(tag, input_type, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
