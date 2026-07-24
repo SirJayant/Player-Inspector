@@ -43,6 +43,12 @@ def jump_to_player(player_tag):
     st.session_state.trigger_fetch = True
     st.session_state.scanned_clan = None
 
+# Helper function to generate dropdown options with names
+def get_name_tag_dict(df):
+    if "Name" in df.columns:
+        return {f"{row['Name']} ({row['Tag']})": row["Tag"] for _, row in df.iterrows()}
+    return {row["Tag"]: row["Tag"] for _, row in df.iterrows()}
+
 # ==========================================
 #         GUI RENDERER (STREAMLIT)
 # ==========================================
@@ -78,7 +84,8 @@ if app_mode == "🕵️ Player Inspector":
             st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN))
 
     if st.session_state.scanned_player:
-        profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, is_maintenance, error = st.session_state.scanned_player
+        # Expected 10 items from models.py
+        profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, error = st.session_state.scanned_player
 
         if error:
             st.error(error)
@@ -146,23 +153,50 @@ if app_mode == "🕵️ Player Inspector":
                 st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break.")
 
             if ranked_defenses:
-                show_3star_only = st.checkbox("Filter: Show only 3-Star Defenses")
+                show_3star_only_def = st.checkbox("Filter: Show only 3-Star Defenses", key="chk_def")
                 df_defenses = pd.DataFrame(ranked_defenses)
-                if show_3star_only:
+                if show_3star_only_def:
                     df_defenses = df_defenses[df_defenses["Stars"] == 3]
 
                 if not df_defenses.empty:
                     st.dataframe(df_defenses, column_config={"Army Link": st.column_config.LinkColumn("Copy Army", display_text="🔗 Copy"), "Tag": st.column_config.TextColumn("Player Tag")}, use_container_width=True, hide_index=True)
 
-                    st.markdown("##### 🔎 Investigate Opponent")
-                    # FIXED: vertical_alignment
+                    st.markdown("##### 🔎 Investigate Attacker")
+                    defender_dict = get_name_tag_dict(df_defenses)
+                    
                     col_tgt1, col_tgt2 = st.columns([3, 1], vertical_alignment="bottom")
-                    with col_tgt1: target_opp = st.selectbox("Select opponent tag to inspect:", df_defenses["Tag"].unique())
-                    with col_tgt2: st.button("Inspect Profile", on_click=jump_to_player, args=(target_opp,), use_container_width=True)
+                    with col_tgt1: target_opp_key = st.selectbox("Select attacker to inspect:", list(defender_dict.keys()), key="sel_def")
+                    with col_tgt2: st.button("Inspect Profile", on_click=jump_to_player, args=(defender_dict[target_opp_key],), key="btn_def", use_container_width=True)
                 else:
                     st.warning("No 3-star defenses found in the current logs.")
             elif not is_maintenance:
                 st.warning("No recent defensive data found.")
+
+            st.divider()
+
+            st.markdown("#### ⚔️ Recent Ranked/Legend Attacks")
+            if is_maintenance:
+                st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break.")
+
+            if ranked_attacks:
+                show_3star_only_atk = st.checkbox("Filter: Show only 3-Star Attacks", key="chk_atk")
+                df_attacks = pd.DataFrame(ranked_attacks)
+                if show_3star_only_atk:
+                    df_attacks = df_attacks[df_attacks["Stars"] == 3]
+
+                if not df_attacks.empty:
+                    st.dataframe(df_attacks, column_config={"Army Link": st.column_config.LinkColumn("Copy Army", display_text="🔗 Copy"), "Tag": st.column_config.TextColumn("Player Tag")}, use_container_width=True, hide_index=True)
+
+                    st.markdown("##### 🔎 Investigate Defender")
+                    attacker_dict = get_name_tag_dict(df_attacks)
+                    
+                    col_atk1, col_atk2 = st.columns([3, 1], vertical_alignment="bottom")
+                    with col_atk1: target_def_key = st.selectbox("Select defender to inspect:", list(attacker_dict.keys()), key="sel_atk")
+                    with col_atk2: st.button("Inspect Profile", on_click=jump_to_player, args=(attacker_dict[target_def_key],), key="btn_atk", use_container_width=True)
+                else:
+                    st.warning("No 3-star attacks found in the current logs.")
+            elif not is_maintenance:
+                st.warning("No recent offensive log data found.")
 
             st.divider()
 
