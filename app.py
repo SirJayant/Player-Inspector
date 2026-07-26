@@ -221,8 +221,9 @@ if app_mode == "🕵️ Player Inspector":
                 if not ranked_defenses:
                     st.info("No recent defenses found.")
 
-            # Isolate the inspectors into a fixed symmetrical row underneath the loops
             st.divider()
+
+            # Symmetrical Inspectors Row below Battle Logs
             inv_col1, inv_col2 = st.columns(2)
 
             with inv_col1:
@@ -232,8 +233,10 @@ if app_mode == "🕵️ Player Inspector":
                     attacker_dict = get_name_tag_dict(df_attacks)
                     
                     c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
-                    with c1: target_def_key = st.selectbox("Select defender to inspect:", list(attacker_dict.keys()), key="sel_atk")
-                    with c2: st.button("Inspect Profile", on_click=jump_to_player, args=(attacker_dict[target_def_key],), key="btn_atk", use_container_width=True)
+                    with c1:
+                        target_def_key = st.selectbox("Select defender to inspect:", list(attacker_dict.keys()), key="sel_atk")
+                    with c2:
+                        st.button("Inspect Profile", on_click=jump_to_player, args=(attacker_dict[target_def_key],), key="btn_atk", use_container_width=True)
 
             with inv_col2:
                 if ranked_defenses:
@@ -242,8 +245,10 @@ if app_mode == "🕵️ Player Inspector":
                     defender_dict = get_name_tag_dict(df_defenses)
                     
                     c3, c4 = st.columns([3, 1], vertical_alignment="bottom")
-                    with c3: target_opp_key = st.selectbox("Select attacker to inspect:", list(defender_dict.keys()), key="sel_def")
-                    with c4: st.button("Inspect Profile", on_click=jump_to_player, args=(defender_dict[target_opp_key],), key="btn_def", use_container_width=True)
+                    with c3:
+                        target_opp_key = st.selectbox("Select attacker to inspect:", list(defender_dict.keys()), key="sel_def")
+                    with c4:
+                        st.button("Inspect Profile", on_click=jump_to_player, args=(defender_dict[target_opp_key],), key="btn_def", use_container_width=True)
 
             st.divider()
 
