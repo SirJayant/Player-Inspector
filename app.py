@@ -123,7 +123,7 @@ if app_mode == "🕵️ Player Inspector":
 
             st.markdown("#### ⚔️ Detected Offensive Armies")
             if ranked_code and unranked_code and (ranked_code == unranked_code):
-                st.toast("One-trick pony alert! 🦄")
+                st.toast("Boring player alert!")
                 st.info("😏 **Note:** This player runs the exact same strategy in Ranked matches and casual multiplayer. Consistency or lack of creativity? You decide.")
 
             arm_col1, arm_col2 = st.columns(2)
@@ -246,7 +246,7 @@ if app_mode == "🕵️ Player Inspector":
 
             with inv_col1:
                 if ranked_attacks:
-                    st.markdown("##### 🔎 Investigate Defender")
+                    st.markdown("##### 🔎 Investigate Opponent")
                     df_attacks = pd.DataFrame(ranked_attacks)
                     attacker_dict = get_name_tag_dict(df_attacks)
                     
