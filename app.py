@@ -124,7 +124,7 @@ if app_mode == "🕵️ Player Inspector":
             st.markdown("#### ⚔️ Detected Offensive Armies")
             if ranked_code and unranked_code and (ranked_code == unranked_code):
                 st.toast("Boring player alert!")
-                st.info("😏 **Note:** This player runs the exact same strategy in Ranked matches and casual multiplayer. Consistency or lack of creativity? You decide.")
+                st.info("😏 **Note:** This player runs the exact same strategy in Ranked matches and casual multiplayer. Consistency or lack of creativity? You decide, but this player doesn't farm efficiently for sure.")
 
             arm_col1, arm_col2 = st.columns(2)
             with arm_col1:
@@ -160,7 +160,8 @@ if app_mode == "🕵️ Player Inspector":
             def render_stars(star_count):
                 filled = "★" * star_count
                 empty = "☆" * (3 - star_count)
-                return f"<span style='color: white; text-shadow: 1px 1px 2px black;'>{filled}{empty}</span>"
+                # Added a subtle text-shadow so the stars pop more cleanly on mobile
+                return f"<span style='color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); letter-spacing: 1px;'>{filled}{empty}</span>"
 
             def get_row_style(is_attack, stars):
                 gold_bg = "linear-gradient(to right, #f4d068, #e8a838)"
@@ -187,12 +188,14 @@ if app_mode == "🕵️ Player Inspector":
                     else:
                         bg, border = gold_bg, gold_border
                 
-                return f"background: {bg}; color: black; border-radius: 4px; padding: 6px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid {border}; font-family: sans-serif;"
+                # Removed hardcoded justify-content and relies on inner element flex properties
+                return f"background: {bg}; color: black; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; border: 1px solid {border}; font-family: sans-serif; font-size: 0.9em;"
 
             def get_link_button(link):
                 if link:
-                    return f'<a href="{link}" target="_blank" style="text-decoration: none; color: black; background: rgba(255,255,255,0.4); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; border: 1px solid rgba(0,0,0,0.4);">🔗 Copy</a>'
-                return '<span style="font-size: 0.85em; opacity: 0.5;">Hidden</span>'
+                    # Added white-space: nowrap to prevent button squishing
+                    return f'<a href="{link}" target="_blank" style="text-decoration: none; color: black; background: rgba(255,255,255,0.4); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; border: 1px solid rgba(0,0,0,0.4); white-space: nowrap;">🔗 Copy</a>'
+                return '<span style="font-size: 0.85em; opacity: 0.5; white-space: nowrap;">Hidden</span>'
 
             total_atk_trophies = sum(atk.get("Trophies", 0) for atk in ranked_attacks) if ranked_attacks else 0
             total_def_trophies = sum(def_rec.get("Trophies", 0) for def_rec in ranked_defenses) if ranked_defenses else 0
@@ -206,12 +209,13 @@ if app_mode == "🕵️ Player Inspector":
                     row_style = get_row_style(is_attack=True, stars=atk['Stars'])
                     link_btn = get_link_button(atk.get('Army Link'))
                     
+                    # Refactored strictly using flex-grow and flex-shrink logic to handle mobile beautifully
                     atk_html += f"""
                     <div style="{row_style}">
-                        <div style="font-weight: bold; width: 35%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{atk['Name']}</div>
-                        <div style="width: 25%; text-align: center;">{atk['Destruction']} {render_stars(atk['Stars'])}</div>
-                        <div style="font-weight: bold; width: 20%; text-align: center;">+{atk.get('Trophies', 0)} 🏆</div>
-                        <div style="width: 20%; text-align: right;">{link_btn}</div>
+                        <div title="{atk['Name']}" style="font-weight: bold; flex: 1 1 auto; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{atk['Name']}</div>
+                        <div style="flex: 0 0 auto; white-space: nowrap; text-align: center; min-width: 60px;">{atk['Destruction']} {render_stars(atk['Stars'])}</div>
+                        <div style="font-weight: bold; flex: 0 0 auto; white-space: nowrap; text-align: right; min-width: 45px;">+{atk.get('Trophies', 0)} 🏆</div>
+                        <div style="flex: 0 0 auto; white-space: nowrap; text-align: right;">{link_btn}</div>
                     </div>
                     """
                 if atk_html:
@@ -228,10 +232,10 @@ if app_mode == "🕵️ Player Inspector":
                     
                     def_html += f"""
                     <div style="{row_style}">
-                        <div style="font-weight: bold; width: 35%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{dfns['Name']}</div>
-                        <div style="width: 25%; text-align: center;">{dfns['Destruction']} {render_stars(dfns['Stars'])}</div>
-                        <div style="font-weight: bold; width: 20%; text-align: center;">+{dfns.get('Trophies', 0)} 🏆</div>
-                        <div style="width: 20%; text-align: right;">{link_btn}</div>
+                        <div title="{dfns['Name']}" style="font-weight: bold; flex: 1 1 auto; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{dfns['Name']}</div>
+                        <div style="flex: 0 0 auto; white-space: nowrap; text-align: center; min-width: 60px;">{dfns['Destruction']} {render_stars(dfns['Stars'])}</div>
+                        <div style="font-weight: bold; flex: 0 0 auto; white-space: nowrap; text-align: right; min-width: 45px;">+{dfns.get('Trophies', 0)} 🏆</div>
+                        <div style="flex: 0 0 auto; white-space: nowrap; text-align: right;">{link_btn}</div>
                     </div>
                     """
                 if def_html:
@@ -246,7 +250,7 @@ if app_mode == "🕵️ Player Inspector":
 
             with inv_col1:
                 if ranked_attacks:
-                    st.markdown("##### 🔎 Investigate Opponent")
+                    st.markdown("##### 🔎 Investigate Defender")
                     df_attacks = pd.DataFrame(ranked_attacks)
                     attacker_dict = get_name_tag_dict(df_attacks)
                     
