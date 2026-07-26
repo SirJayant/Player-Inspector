@@ -133,7 +133,7 @@ async def process_player_inspector(tag, token):
                     stars = item.get("stars", 0)
                     destruction = item.get("destructionPercentage", 0)
                     
-                    # Calculate Trophies locally
+                    # Apply mathematical formula
                     t_a, t_d = calculate_trophies(stars, destruction)
                     is_attack = item.get("attack")
 
@@ -147,6 +147,7 @@ async def process_player_inspector(tag, token):
                         "Army Link": f"https://link.clashofclans.com/en?action=CopyArmy&army={code}" if code else None,
                         "Trophies": t_a if is_attack else t_d
                     }
+                    
                     if is_attack:
                         ranked_attacks.append(record)
                     else:
