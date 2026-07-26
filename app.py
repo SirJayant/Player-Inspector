@@ -250,7 +250,7 @@ if app_mode == "🕵️ Player Inspector":
 
             with inv_col1:
                 if ranked_attacks:
-                    st.markdown("##### 🔎 Investigate Defender")
+                    st.markdown("##### 🔎 Investigate Opponent")
                     df_attacks = pd.DataFrame(ranked_attacks)
                     attacker_dict = get_name_tag_dict(df_attacks)
                     
