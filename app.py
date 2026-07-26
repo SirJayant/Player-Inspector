@@ -217,7 +217,7 @@ if app_mode == "🕵️ Player Inspector":
                 if atk_html:
                     st.markdown(atk_html, unsafe_allow_html=True)
                 if not ranked_attacks and not is_maintenance and not has_only_old_logs:
-                    st.info("No recent attacks found. Are they slacking?")
+                    st.info("No recent attacks found. Are they slacking? Or.... they attacked so early the server forgot? Check trophies, thankfully we have that info accurate.")
 
             with log_col2:
                 st.markdown(f"**Defenses** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **+{total_def_trophies} 🏆**")
