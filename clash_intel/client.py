@@ -32,7 +32,7 @@ class ClashAPIClient:
                     return None, "Invalid API Token. Verify your key configuration."
                 if response.status == 404:
                     return None, "Target resource tag not found."
-                return None, f"API Error: HTTP {response.status}"
+                return None, f"API Error: HTTP {response.status}, you sure you entered correct info bro?"
         except Exception as e:
             return None, f"Connection failed: {str(e)}"
 
