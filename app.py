@@ -151,7 +151,7 @@ if app_mode == "🕵️ Player Inspector":
             if is_maintenance or (not ranked_attacks and not ranked_defenses):
                 st.info("🧹 **Server Scrub!** The Supercell goblins recently wiped the battle logs (usually due to a maintenance break). We gotta wait for this player to drop some troops before we can steal their intel!")
             else:
-                st.caption("🕵️ **Intel Note: Supercell’s servers have the memory span of a goldfish. This ledger only shows recent skirmishes, not your target’s lifetime history. We don’t log past attacks, so take a breather, you can't stalk what isn't there")
+                st.caption("🕵️ **Intel Note: Supercell’s servers have the memory span of a goldfish. This ledger only shows recent skirmishes, not your target’s lifetime history. We don’t log past attacks, so take a breather, you can't stalk what isn't there**")
 
             def render_stars(star_count):
                 filled = "★" * star_count
