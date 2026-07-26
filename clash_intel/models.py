@@ -165,6 +165,10 @@ async def process_player_inspector(tag, token):
             for item in reversed(battle_log["items"]):
                 if item.get("battleType") in ["ranked", "legend"]:
                     
+                    # Skip "ghost" battles where API returns null for opponent identifiers
+                    if item.get("opponentName") is None or item.get("opponentPlayerTag") is None:
+                        continue
+                    
                     # Intercept and block old tournament battles using the correct JSON key
                     battle_time_str = item.get("battleTimestamp")
                     if battle_time_str:
