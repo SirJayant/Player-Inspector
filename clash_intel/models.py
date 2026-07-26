@@ -2,6 +2,7 @@ import asyncio
 import collections
 import urllib.parse
 import re
+import math
 import aiohttp
 import pandas as pd
 from clash_intel.constants import SUPER_TROOP_MAP, PET_NAMES, get_th_hero_max
@@ -28,22 +29,16 @@ async def fetch_player_profile(session, tag, headers):
 def get_smart_army_code(share_codes):
     if not share_codes:
         return None
-
     strategy_groups = collections.defaultdict(list)
-
     for code in share_codes:
         u_match = re.search(r'u([0-9x\-]+)', code)
         s_match = re.search(r's([0-9x\-]+)', code)
-
         u_str = u_match.group(1) if u_match else ""
         s_str = s_match.group(1) if s_match else ""
-
         combined_str = f"{u_str}-{s_str}".strip('-')
         items = [item for item in combined_str.split('-') if 'x' in item]
-
         ids = set()
         total_weight = 0
-
         for item in items:
             parts = item.split('x')
             if len(parts) == 2:
@@ -54,20 +49,31 @@ def get_smart_army_code(share_codes):
                     total_weight += count
                 except ValueError:
                     continue
-
         if ids:
             fingerprint = frozenset(ids)
             strategy_groups[fingerprint].append((total_weight, code))
-
     if not strategy_groups:
         return collections.Counter(share_codes).most_common(1)[0][0]
-
     best_fingerprint = max(
         strategy_groups.keys(),
         key=lambda f: (len(strategy_groups[f]), sum(w for w, c in strategy_groups[f]))
     )
-
     return max(strategy_groups[best_fingerprint], key=lambda x: x[0])[1]
+
+def calculate_trophies(stars: int, destruction: int):
+    """Calculates attacker and defender trophies based on Ranked mechanics."""
+    destruction = max(0, min(100, destruction))
+    if stars == 3:
+        t_a = 40
+    elif stars == 2:
+        t_a = 16 + math.floor((destruction - 50) / 3)
+    elif stars == 1:
+        t_a = 5 + math.floor((destruction - 1) / 9)
+    else:
+        t_a = min(4, math.floor(destruction / 10)) if destruction >= 10 else 0
+        
+    t_d = 40 - t_a if stars > 0 else 40
+    return t_a, t_d
 
 async def process_player_inspector(tag, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
@@ -96,7 +102,6 @@ async def process_player_inspector(tag, token):
                     "Name": h["name"], "Level": h["level"], "TH_Max": th_max, "IsMax": (h["level"] >= th_max)
                 })
 
-        # Battle Log Processing
         battle_log, _ = await fetch_api(session, f"players/{format_tag(tag)}/battlelog", headers)
 
         is_maintenance = (battle_log is not None and "items" in battle_log and len(battle_log["items"]) == 0)
@@ -122,20 +127,27 @@ async def process_player_inspector(tag, token):
             if unranked_offensive_codes:
                 unranked_code = get_smart_army_code(unranked_offensive_codes)
 
-            # Defensive & Offensive parsing (reversed for newest first)
             for item in reversed(battle_log["items"]):
                 if item.get("battleType") in ["ranked", "legend"]:
                     code = item.get("armyShareCode")
+                    stars = item.get("stars", 0)
+                    destruction = item.get("destructionPercentage", 0)
+                    
+                    # Calculate Trophies
+                    t_a, t_d = calculate_trophies(stars, destruction)
+                    is_attack = item.get("attack")
+
                     record = {
                         "Name": item.get("opponentName", "Unknown"),
                         "Tag": item.get("opponentPlayerTag", ""),
                         "TH": item.get("opponentTownHallLevel", ""),
-                        "Stars": item.get("stars", 0),
-                        "Destruction": f"{item.get('destructionPercentage', 0)}%",
+                        "Stars": stars,
+                        "Destruction": f"{destruction}%",
                         "Type": str(item.get("battleType")).capitalize(),
-                        "Army Link": f"https://link.clashofclans.com/en?action=CopyArmy&army={code}" if code else None
+                        "Army Link": f"https://link.clashofclans.com/en?action=CopyArmy&army={code}" if code else None,
+                        "Trophies": t_a if is_attack else t_d
                     }
-                    if item.get("attack"):
+                    if is_attack:
                         ranked_attacks.append(record)
                     else:
                         ranked_defenses.append(record)
