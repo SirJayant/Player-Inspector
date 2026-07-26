@@ -148,7 +148,6 @@ if app_mode == "🕵️ Player Inspector":
             if is_maintenance:
                 st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break.")
 
-            # --- CUSTOM BATTLE LOG UI ---
             st.markdown(f"### 🛡️ Battle Log: {profile.get('name')} | Total: {profile.get('trophies')} 🏆")
 
             def render_stars(star_count):
@@ -204,14 +203,6 @@ if app_mode == "🕵️ Player Inspector":
                     st.markdown(atk_html, unsafe_allow_html=True)
                 if not ranked_attacks:
                     st.info("No recent attacks found.")
-                else:
-                    # Restore Attack Inspector
-                    st.markdown("<br>##### 🔎 Investigate Defender", unsafe_allow_html=True)
-                    df_attacks = pd.DataFrame(ranked_attacks)
-                    attacker_dict = get_name_tag_dict(df_attacks)
-                    col_atk1, col_atk2 = st.columns([3, 1], vertical_alignment="bottom")
-                    with col_atk1: target_def_key = st.selectbox("Select defender to inspect:", list(attacker_dict.keys()), key="sel_atk")
-                    with col_atk2: st.button("Inspect Profile", on_click=jump_to_player, args=(attacker_dict[target_def_key],), key="btn_atk", use_container_width=True)
 
             with log_col2:
                 st.markdown(f"**Defenses** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **+{total_def_trophies} 🏆**")
@@ -229,14 +220,30 @@ if app_mode == "🕵️ Player Inspector":
                     st.markdown(def_html, unsafe_allow_html=True)
                 if not ranked_defenses:
                     st.info("No recent defenses found.")
-                else:
-                    # Restore Defense Inspector
-                    st.markdown("<br>##### 🔎 Investigate Attacker", unsafe_allow_html=True)
+
+            # Isolate the inspectors into a fixed symmetrical row underneath the loops
+            st.divider()
+            inv_col1, inv_col2 = st.columns(2)
+
+            with inv_col1:
+                if ranked_attacks:
+                    st.markdown("##### 🔎 Investigate Defender")
+                    df_attacks = pd.DataFrame(ranked_attacks)
+                    attacker_dict = get_name_tag_dict(df_attacks)
+                    
+                    c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
+                    with c1: target_def_key = st.selectbox("Select defender to inspect:", list(attacker_dict.keys()), key="sel_atk")
+                    with c2: st.button("Inspect Profile", on_click=jump_to_player, args=(attacker_dict[target_def_key],), key="btn_atk", use_container_width=True)
+
+            with inv_col2:
+                if ranked_defenses:
+                    st.markdown("##### 🔎 Investigate Attacker")
                     df_defenses = pd.DataFrame(ranked_defenses)
                     defender_dict = get_name_tag_dict(df_defenses)
-                    col_tgt1, col_tgt2 = st.columns([3, 1], vertical_alignment="bottom")
-                    with col_tgt1: target_opp_key = st.selectbox("Select attacker to inspect:", list(defender_dict.keys()), key="sel_def")
-                    with col_tgt2: st.button("Inspect Profile", on_click=jump_to_player, args=(defender_dict[target_opp_key],), key="btn_def", use_container_width=True)
+                    
+                    c3, c4 = st.columns([3, 1], vertical_alignment="bottom")
+                    with c3: target_opp_key = st.selectbox("Select attacker to inspect:", list(defender_dict.keys()), key="sel_def")
+                    with c4: st.button("Inspect Profile", on_click=jump_to_player, args=(defender_dict[target_opp_key],), key="btn_def", use_container_width=True)
 
             st.divider()
 
