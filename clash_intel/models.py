@@ -133,7 +133,7 @@ async def process_player_inspector(tag, token):
                     stars = item.get("stars", 0)
                     destruction = item.get("destructionPercentage", 0)
                     
-                    # Calculate Trophies
+                    # Calculate Trophies locally
                     t_a, t_d = calculate_trophies(stars, destruction)
                     is_attack = item.get("attack")
 
