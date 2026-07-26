@@ -60,19 +60,26 @@ def get_smart_army_code(share_codes):
     )
     return max(strategy_groups[best_fingerprint], key=lambda x: x[0])[1]
 
-def calculate_trophies(stars: int, destruction: int):
-    """Calculates attacker and defender trophies based on Ranked mechanics."""
-    destruction = max(0, min(100, destruction))
+def calculate_trophies(stars: int, destruction: int) -> tuple[int, int]:
+    """Calculates attacker (t_a) and defender (t_d) trophies strictly based on Ranked mechanics."""
+    D = max(0, min(100, int(destruction)))
+    stars = int(stars)
+    
     if stars == 3:
         t_a = 40
     elif stars == 2:
-        t_a = 16 + math.floor((destruction - 50) / 3)
+        t_a = 16 + math.floor((D - 50) / 3)
     elif stars == 1:
-        t_a = 5 + math.floor((destruction - 1) / 9)
-    else:
-        t_a = min(4, math.floor(destruction / 10)) if destruction >= 10 else 0
+        t_a = 5 + math.floor((D - 1) / 9)
+    else:  # 0 stars
+        t_a = math.floor(D / 10) if D >= 10 else 0
+        t_a = min(4, t_a)
         
-    t_d = 40 - t_a if stars > 0 else 40
+    if stars > 0:
+        t_d = 40 - t_a
+    else:
+        t_d = 40
+        
     return t_a, t_d
 
 async def process_player_inspector(tag, token):
@@ -133,9 +140,9 @@ async def process_player_inspector(tag, token):
                     stars = item.get("stars", 0)
                     destruction = item.get("destructionPercentage", 0)
                     
-                    # Apply mathematical formula
+                    # Compute trophies
                     t_a, t_d = calculate_trophies(stars, destruction)
-                    is_attack = item.get("attack")
+                    is_attack = item.get("attack", True)
 
                     record = {
                         "Name": item.get("opponentName", "Unknown"),
