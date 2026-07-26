@@ -185,6 +185,11 @@ if app_mode == "🕵️ Player Inspector":
                 
                 return f"background: {bg}; color: black; border-radius: 4px; padding: 6px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid {border}; font-family: sans-serif;"
 
+            def get_link_button(link):
+                if link:
+                    return f'<a href="{link}" target="_blank" style="text-decoration: none; color: black; background: rgba(255,255,255,0.4); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; border: 1px solid rgba(0,0,0,0.4);">🔗 Copy</a>'
+                return '<span style="font-size: 0.85em; opacity: 0.5;">Hidden</span>'
+
             total_atk_trophies = sum(atk.get("Trophies", 0) for atk in ranked_attacks) if ranked_attacks else 0
             total_def_trophies = sum(def_rec.get("Trophies", 0) for def_rec in ranked_defenses) if ranked_defenses else 0
 
@@ -195,11 +200,14 @@ if app_mode == "🕵️ Player Inspector":
                 atk_html = ""
                 for atk in ranked_attacks:
                     row_style = get_row_style(is_attack=True, stars=atk['Stars'])
+                    link_btn = get_link_button(atk.get('Army Link'))
+                    
                     atk_html += f"""
                     <div style="{row_style}">
-                        <div style="font-weight: bold; width: 40%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{atk['Name']}</div>
-                        <div style="width: 35%; text-align: center;">{atk['Destruction']} {render_stars(atk['Stars'])}</div>
-                        <div style="font-weight: bold; width: 25%; text-align: right;">+{atk.get('Trophies', 0)} 🏆</div>
+                        <div style="font-weight: bold; width: 35%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{atk['Name']}</div>
+                        <div style="width: 25%; text-align: center;">{atk['Destruction']} {render_stars(atk['Stars'])}</div>
+                        <div style="font-weight: bold; width: 20%; text-align: center;">+{atk.get('Trophies', 0)} 🏆</div>
+                        <div style="width: 20%; text-align: right;">{link_btn}</div>
                     </div>
                     """
                 if atk_html:
@@ -212,11 +220,14 @@ if app_mode == "🕵️ Player Inspector":
                 def_html = ""
                 for dfns in ranked_defenses:
                     row_style = get_row_style(is_attack=False, stars=dfns['Stars'])
+                    link_btn = get_link_button(dfns.get('Army Link'))
+                    
                     def_html += f"""
                     <div style="{row_style}">
-                        <div style="font-weight: bold; width: 40%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{dfns['Name']}</div>
-                        <div style="width: 35%; text-align: center;">{dfns['Destruction']} {render_stars(dfns['Stars'])}</div>
-                        <div style="font-weight: bold; width: 25%; text-align: right;">+{dfns.get('Trophies', 0)} 🏆</div>
+                        <div style="font-weight: bold; width: 35%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{dfns['Name']}</div>
+                        <div style="width: 25%; text-align: center;">{dfns['Destruction']} {render_stars(dfns['Stars'])}</div>
+                        <div style="font-weight: bold; width: 20%; text-align: center;">+{dfns.get('Trophies', 0)} 🏆</div>
+                        <div style="width: 20%; text-align: right;">{link_btn}</div>
                     </div>
                     """
                 if def_html:
