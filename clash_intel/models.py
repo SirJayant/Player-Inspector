@@ -5,6 +5,7 @@ import re
 import math
 import aiohttp
 import pandas as pd
+from datetime import datetime, timezone, timedelta
 from clash_intel.constants import SUPER_TROOP_MAP, PET_NAMES, get_th_hero_max
 
 BASE_URL = "https://cocproxy.royaleapi.dev/v1"
@@ -13,6 +14,29 @@ def format_tag(tag):
     tag = tag.strip().upper()
     if not tag.startswith("#"): tag = "#" + tag
     return urllib.parse.quote(tag)
+
+def get_last_tournament_start_utc():
+    """Returns the datetime of the most recent Monday at 05:00 UTC (10:30 AM IST)."""
+    now = datetime.now(timezone.utc)
+    days_since_monday = now.weekday() # Monday is 0
+    
+    this_monday_start = (now - timedelta(days=days_since_monday)).replace(
+        hour=5, minute=0, second=0, microsecond=0
+    )
+    
+    # If today is Monday but we haven't hit 10:30 AM IST yet, the tournament hasn't ended.
+    # Therefore, the "start" of the active tournament was actually the previous week.
+    if now < this_monday_start:
+        return this_monday_start - timedelta(days=7)
+        
+    return this_monday_start
+
+def parse_coc_time(time_str: str):
+    """Parses Supercell API timestamp '20240722T143211.000Z' into timezone-aware UTC datetime."""
+    try:
+        return datetime.strptime(time_str, "%Y%m%dT%H%M%S.%fZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
 
 async def fetch_api(session, endpoint, headers):
     url = f"{BASE_URL}/{endpoint}"
@@ -86,7 +110,7 @@ async def process_player_inspector(tag, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     async with aiohttp.ClientSession() as session:
         profile_data, error = await fetch_api(session, f"players/{format_tag(tag)}", headers)
-        if error: return None, None, None, None, None, None, None, None, False, error
+        if error: return None, None, None, None, None, None, None, None, False, False, error
 
         th_level = profile_data.get("townHallLevel", 1)
 
@@ -112,6 +136,7 @@ async def process_player_inspector(tag, token):
         battle_log, _ = await fetch_api(session, f"players/{format_tag(tag)}/battlelog", headers)
 
         is_maintenance = (battle_log is not None and "items" in battle_log and len(battle_log["items"]) == 0)
+        has_only_old_logs = False
         ranked_code = None
         unranked_code = None
         ranked_defenses = []
@@ -120,6 +145,9 @@ async def process_player_inspector(tag, token):
         if battle_log and "items" in battle_log:
             ranked_offensive_codes = []
             unranked_offensive_codes = []
+            
+            tournament_start_utc = get_last_tournament_start_utc()
+            old_logs_found = 0
 
             for item in battle_log["items"]:
                 if item.get("armyShareCode") and item.get("attack"):
@@ -136,6 +164,15 @@ async def process_player_inspector(tag, token):
 
             for item in reversed(battle_log["items"]):
                 if item.get("battleType") in ["ranked", "legend"]:
+                    
+                    # Intercept and block old tournament battles
+                    battle_time_str = item.get("battleTime")
+                    if battle_time_str:
+                        battle_time = parse_coc_time(battle_time_str)
+                        if battle_time < tournament_start_utc:
+                            old_logs_found += 1
+                            continue # Skip processing this battle
+                            
                     code = item.get("armyShareCode")
                     stars = item.get("stars", 0)
                     destruction = item.get("destructionPercentage", 0)
@@ -159,8 +196,12 @@ async def process_player_inspector(tag, token):
                         ranked_attacks.append(record)
                     else:
                         ranked_defenses.append(record)
+                        
+            # If we found logs, but they were all completely filtered out due to being old
+            if old_logs_found > 0 and len(ranked_attacks) == 0 and len(ranked_defenses) == 0:
+                has_only_old_logs = True
 
-        return profile_data, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, None
+        return profile_data, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, None
 
 async def process_clan_auditor(tag, input_type, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
