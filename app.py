@@ -172,7 +172,6 @@ if app_mode == "🕵️ Player Inspector":
                                 align-items: center; border: 1px solid #c98c1c; font-family: sans-serif;">
                         <div style="font-weight: bold; width: 40%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{atk['Name']}</div>
                         <div style="width: 35%; text-align: center;">{atk['Destruction']} {render_stars(atk['Stars'])}</div>
-                        # Change this line inside the atk_html block:
                         <div style="font-weight: bold; width: 25%; text-align: right;">+{atk.get('Trophies', 0)} 🏆</div>
                     </div>
                     """
@@ -192,7 +191,6 @@ if app_mode == "🕵️ Player Inspector":
                                 align-items: center; border: 1px solid #b74b4b; font-family: sans-serif;">
                         <div style="font-weight: bold; width: 40%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{dfns['Name']}</div>
                         <div style="width: 35%; text-align: center;">{dfns['Destruction']} {render_stars(dfns['Stars'])}</div>
-                        # Change this line inside the def_html block:
                         <div style="font-weight: bold; width: 25%; text-align: right;">+{dfns.get('Trophies', 0)} 🏆</div>
                     </div>
                     """
