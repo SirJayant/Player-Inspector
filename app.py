@@ -156,6 +156,33 @@ if app_mode == "🕵️ Player Inspector":
                 empty = "☆" * (3 - star_count)
                 return f"<span style='color: white; text-shadow: 1px 1px 2px black;'>{filled}{empty}</span>"
 
+            def get_row_style(is_attack, stars):
+                gold_bg = "linear-gradient(to right, #f4d068, #e8a838)"
+                gold_border = "#c98c1c"
+                
+                grey_bg = "linear-gradient(to right, #e0e0e0, #b8b8b8)"
+                grey_border = "#9e9e9e"
+                
+                red_bg = "linear-gradient(to right, #f4a298, #e36a6a)"
+                red_border = "#b74b4b"
+
+                if is_attack:
+                    if stars == 3:
+                        bg, border = gold_bg, gold_border
+                    elif stars > 0:
+                        bg, border = grey_bg, grey_border
+                    else:
+                        bg, border = red_bg, red_border
+                else:
+                    if stars == 3:
+                        bg, border = red_bg, red_border
+                    elif stars > 0:
+                        bg, border = grey_bg, grey_border
+                    else:
+                        bg, border = gold_bg, gold_border
+                
+                return f"background: {bg}; color: black; border-radius: 4px; padding: 6px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid {border}; font-family: sans-serif;"
+
             total_atk_trophies = sum(atk.get("Trophies", 0) for atk in ranked_attacks) if ranked_attacks else 0
             total_def_trophies = sum(def_rec.get("Trophies", 0) for def_rec in ranked_defenses) if ranked_defenses else 0
 
@@ -165,11 +192,9 @@ if app_mode == "🕵️ Player Inspector":
                 st.markdown(f"**Attacks** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **+{total_atk_trophies} 🏆**")
                 atk_html = ""
                 for atk in ranked_attacks:
+                    row_style = get_row_style(is_attack=True, stars=atk['Stars'])
                     atk_html += f"""
-                    <div style="background: linear-gradient(to right, #f4d068, #e8a838); 
-                                color: black; border-radius: 4px; padding: 6px 12px; 
-                                margin-bottom: 6px; display: flex; justify-content: space-between; 
-                                align-items: center; border: 1px solid #c98c1c; font-family: sans-serif;">
+                    <div style="{row_style}">
                         <div style="font-weight: bold; width: 40%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{atk['Name']}</div>
                         <div style="width: 35%; text-align: center;">{atk['Destruction']} {render_stars(atk['Stars'])}</div>
                         <div style="font-weight: bold; width: 25%; text-align: right;">+{atk.get('Trophies', 0)} 🏆</div>
@@ -184,11 +209,9 @@ if app_mode == "🕵️ Player Inspector":
                 st.markdown(f"**Defenses** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **+{total_def_trophies} 🏆**")
                 def_html = ""
                 for dfns in ranked_defenses:
+                    row_style = get_row_style(is_attack=False, stars=dfns['Stars'])
                     def_html += f"""
-                    <div style="background: linear-gradient(to right, #f4a298, #e36a6a); 
-                                color: black; border-radius: 4px; padding: 6px 12px; 
-                                margin-bottom: 6px; display: flex; justify-content: space-between; 
-                                align-items: center; border: 1px solid #b74b4b; font-family: sans-serif;">
+                    <div style="{row_style}">
                         <div style="font-weight: bold; width: 40%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{dfns['Name']}</div>
                         <div style="width: 35%; text-align: center;">{dfns['Destruction']} {render_stars(dfns['Stars'])}</div>
                         <div style="font-weight: bold; width: 25%; text-align: right;">+{dfns.get('Trophies', 0)} 🏆</div>
