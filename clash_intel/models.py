@@ -32,7 +32,7 @@ def get_last_tournament_start_utc():
     return this_monday_start
 
 def parse_coc_time(time_str: str):
-    """Parses Supercell API timestamp '20240722T143211.000Z' into timezone-aware UTC datetime."""
+    """Parses Supercell API timestamp '20260722T103543.000Z' into timezone-aware UTC datetime."""
     try:
         return datetime.strptime(time_str, "%Y%m%dT%H%M%S.%fZ").replace(tzinfo=timezone.utc)
     except ValueError:
@@ -165,8 +165,8 @@ async def process_player_inspector(tag, token):
             for item in reversed(battle_log["items"]):
                 if item.get("battleType") in ["ranked", "legend"]:
                     
-                    # Intercept and block old tournament battles
-                    battle_time_str = item.get("battleTime")
+                    # Intercept and block old tournament battles using the correct JSON key
+                    battle_time_str = item.get("battleTimestamp")
                     if battle_time_str:
                         battle_time = parse_coc_time(battle_time_str)
                         if battle_time < tournament_start_utc:
