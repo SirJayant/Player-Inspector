@@ -145,10 +145,13 @@ if app_mode == "🕵️ Player Inspector":
 
             st.divider()
 
-            if is_maintenance:
-                st.info("ℹ️ Note: Log is currently empty. This often occurs during or immediately after a maintenance break.")
-
+            # --- CUSTOM BATTLE LOG UI ---
             st.markdown(f"### 🛡️ Battle Log: {profile.get('name')} | Total: {profile.get('trophies')} 🏆")
+
+            if is_maintenance or (not ranked_attacks and not ranked_defenses):
+                st.info("🧹 **Server Scrub!** The Supercell goblins recently wiped the battle logs (usually due to a maintenance break). We gotta wait for this player to drop some troops before we can steal their intel!")
+            else:
+                st.caption("🕵️ **Intel Note:** Supercell's servers have a short memory. This ledger only reflects the most recent skirmishes, not the entire season's history. What you see here is just the tip of the iceberg!")
 
             def render_stars(star_count):
                 filled = "★" * star_count
@@ -201,8 +204,8 @@ if app_mode == "🕵️ Player Inspector":
                     """
                 if atk_html:
                     st.markdown(atk_html, unsafe_allow_html=True)
-                if not ranked_attacks:
-                    st.info("No recent attacks found.")
+                if not ranked_attacks and not is_maintenance:
+                    st.info("No recent attacks found. Are they slacking?")
 
             with log_col2:
                 st.markdown(f"**Defenses** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **+{total_def_trophies} 🏆**")
@@ -218,8 +221,8 @@ if app_mode == "🕵️ Player Inspector":
                     """
                 if def_html:
                     st.markdown(def_html, unsafe_allow_html=True)
-                if not ranked_defenses:
-                    st.info("No recent defenses found.")
+                if not ranked_defenses and not is_maintenance:
+                    st.info("No recent defenses found. Flying under the radar!")
 
             st.divider()
 
