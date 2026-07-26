@@ -82,7 +82,7 @@ if app_mode == "🕵️ Player Inspector":
             st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN))
 
     if st.session_state.scanned_player:
-        profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, error = st.session_state.scanned_player
+        profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, error = st.session_state.scanned_player
 
         if error:
             st.error(error)
@@ -148,8 +148,12 @@ if app_mode == "🕵️ Player Inspector":
             # --- CUSTOM BATTLE LOG UI ---
             st.markdown(f"### 🛡️ Battle Log: {profile.get('name')} | Total: {profile.get('trophies')} 🏆")
 
-            if is_maintenance or (not ranked_attacks and not ranked_defenses):
+            if is_maintenance:
                 st.info("🧹 **Server Scrub!** The Supercell goblins recently wiped the battle logs (usually due to a maintenance break). We gotta wait for this player to drop some troops before we can steal their intel!")
+            elif has_only_old_logs:
+                st.warning("⏳ **Outdated Intel!** This player has not taken participation in the new tournament yet. The logs we found are from before the Monday morning reset (10:30 AM IST). We are only seeing old ghosts!")
+            elif not ranked_attacks and not ranked_defenses:
+                st.info("🧹 **Empty Ledger!** We couldn't find any recent Ranked or Legend league battles for this player.")
             else:
                 st.caption("🕵️ **Intel Note: Supercell’s servers have the memory span of a goldfish. This ledger only shows recent skirmishes, not your target’s lifetime history. We don’t log past attacks, so take a breather, you can't stalk what isn't there**")
 
@@ -212,7 +216,7 @@ if app_mode == "🕵️ Player Inspector":
                     """
                 if atk_html:
                     st.markdown(atk_html, unsafe_allow_html=True)
-                if not ranked_attacks and not is_maintenance:
+                if not ranked_attacks and not is_maintenance and not has_only_old_logs:
                     st.info("No recent attacks found. Are they slacking?")
 
             with log_col2:
@@ -232,7 +236,7 @@ if app_mode == "🕵️ Player Inspector":
                     """
                 if def_html:
                     st.markdown(def_html, unsafe_allow_html=True)
-                if not ranked_defenses and not is_maintenance:
+                if not ranked_defenses and not is_maintenance and not has_only_old_logs:
                     st.info("No recent defenses found. Flying under the radar!")
 
             st.divider()
