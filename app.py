@@ -174,30 +174,16 @@ if app_mode == "🕵️ Player Inspector":
             league_name = profile.get("league", {}).get("name", "Unranked")
             war_stars = profile.get('warStars', 0)
             
-            overview_html = f"""
-            <div class="card-grid">
-                <div class="stat-card">
-                    <div class="stat-title">Town Hall</div>
-                    <div class="stat-value">{profile.get('townHallLevel')}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">League</div>
-                    <div class="stat-value">{league_name}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">Trophies</div>
-                    <div class="stat-value">{profile.get('trophies')}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">War Stars</div>
-                    <div class="stat-value">⭐ {war_stars}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">Total Hero Power</div>
-                    <div class="stat-value">⚡ {hero_sum}</div>
-                </div>
-            </div>
-            """
+            # Using single-line concatenation to strictly avoid markdown parsing issues
+            overview_html = (
+                f'<div class="card-grid">'
+                f'<div class="stat-card"><div class="stat-title">Town Hall</div><div class="stat-value">{profile.get("townHallLevel")}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">League</div><div class="stat-value">{league_name}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Trophies</div><div class="stat-value">{profile.get("trophies")}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">War Stars</div><div class="stat-value">⭐ {war_stars}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Total Hero Power</div><div class="stat-value">⚡ {hero_sum}</div></div>'
+                f'</div>'
+            )
             st.markdown(overview_html, unsafe_allow_html=True)
 
             # --- NEW UI: MONTHLY LEDGER ---
@@ -206,30 +192,15 @@ if app_mode == "🕵️ Player Inspector":
             received = profile.get("donationsReceived", 0)
             ratio = round(donated / received, 2) if received > 0 else donated
             
-            ledger_html = f"""
-            <div class="card-grid">
-                <div class="stat-card">
-                    <div class="stat-title">Attack Wins</div>
-                    <div class="stat-value">{profile.get('attackWins', 0)}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">Defense Wins</div>
-                    <div class="stat-value">{profile.get('defenseWins', 0)}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">Troops Donated</div>
-                    <div class="stat-value">{donated}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">Troops Received</div>
-                    <div class="stat-value">{received}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">Donation Ratio</div>
-                    <div class="stat-value">{ratio}x</div>
-                </div>
-            </div>
-            """
+            ledger_html = (
+                f'<div class="card-grid">'
+                f'<div class="stat-card"><div class="stat-title">Attack Wins</div><div class="stat-value">{profile.get("attackWins", 0)}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Defense Wins</div><div class="stat-value">{profile.get("defenseWins", 0)}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value">{donated}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Troops Received</div><div class="stat-value">{received}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value">{ratio}x</div></div>'
+                f'</div>'
+            )
             st.markdown(ledger_html, unsafe_allow_html=True)
 
             # --- NEW UI: HERO ALTAR ---
@@ -239,14 +210,7 @@ if app_mode == "🕵️ Player Inspector":
                 for h in home_heroes:
                     cap_class = "hero-cap-max" if h["IsMax"] else "hero-cap"
                     cap_text = "TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}"
-                    
-                    heroes_html += f"""
-                    <div class="hero-card">
-                        <div class="hero-name">{h['Name']}</div>
-                        <div class="hero-lvl">Lvl {h['Level']}</div>
-                        <div class="{cap_class}">{cap_text}</div>
-                    </div>
-                    """
+                    heroes_html += f'<div class="hero-card"><div class="hero-name">{h["Name"]}</div><div class="hero-lvl">Lvl {h["Level"]}</div><div class="{cap_class}">{cap_text}</div></div>'
                 heroes_html += '</div>'
                 st.markdown(heroes_html, unsafe_allow_html=True)
 
@@ -294,7 +258,6 @@ if app_mode == "🕵️ Player Inspector":
             def render_stars(star_count):
                 filled = "★" * star_count
                 empty = "☆" * (3 - star_count)
-                # Added a subtle text-shadow so the stars pop more cleanly on mobile
                 return f"<span style='color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); letter-spacing: 1px;'>{filled}{empty}</span>"
 
             def get_row_style(is_attack, stars):
@@ -322,12 +285,10 @@ if app_mode == "🕵️ Player Inspector":
                     else:
                         bg, border = gold_bg, gold_border
                 
-                # Removed hardcoded justify-content and relies on inner element flex properties
                 return f"background: {bg}; color: black; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; border: 1px solid {border}; font-family: sans-serif; font-size: 0.9em;"
 
             def get_link_button(link):
                 if link:
-                    # Added white-space: nowrap to prevent button squishing
                     return f'<a href="{link}" target="_blank" style="text-decoration: none; color: black; background: rgba(255,255,255,0.4); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; border: 1px solid rgba(0,0,0,0.4); white-space: nowrap;">🔗 Copy</a>'
                 return '<span style="font-size: 0.85em; opacity: 0.5; white-space: nowrap;">Hidden</span>'
 
@@ -343,7 +304,6 @@ if app_mode == "🕵️ Player Inspector":
                     row_style = get_row_style(is_attack=True, stars=atk['Stars'])
                     link_btn = get_link_button(atk.get('Army Link'))
                     
-                    # Refactored strictly using flex-grow and flex-shrink logic to handle mobile beautifully
                     atk_html += f"""
                     <div style="{row_style}">
                         <div title="{atk['Name']}" style="font-weight: bold; flex: 1 1 auto; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{atk['Name']}</div>
