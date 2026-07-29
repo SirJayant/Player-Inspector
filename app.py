@@ -210,9 +210,9 @@ if app_mode == "🕵️ Player Inspector":
                 f'<div class="card-grid">'
                 f'<div class="stat-card"><div class="stat-value sc-font" style="text-align: center; flex-wrap: wrap;">TOWN HALL {th_level}</div></div>'
                 f'<div class="stat-card"><img src="{league_icon}" class="stat-img" alt="League" onerror="this.style.display=\'none\'"><div class="stat-title">League</div><div class="stat-value sc-font" style="font-size:1.1rem;">{league_name}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Trophies</div><div class="stat-value sc-font">🏆 {profile.get("trophies")🏆}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">War Stars</div><div class="stat-value sc-font">⭐ {war_stars}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Total Hero Power</div><div class="stat-value sc-font">⚡ {hero_sum}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Trophies</div><div class="stat-value sc-font">{profile.get("trophies")} 🏆</div></div>'
+                f'<div class="stat-card"><div class="stat-title">War Stars</div><div class="stat-value sc-font">{war_stars} ⭐</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Total Hero Power</div><div class="stat-value sc-font">{hero_sum} ⚡</div></div>'
                 f'</div>'
             )
             st.markdown(overview_html, unsafe_allow_html=True)
