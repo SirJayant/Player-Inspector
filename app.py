@@ -1,4 +1,5 @@
 import asyncio
+import urllib.parse
 import pandas as pd
 import streamlit as st
 from clash_intel.models import process_player_inspector, process_clan_auditor, run_ping_a_donor
@@ -9,9 +10,20 @@ from clash_intel.ui.components import show_donation_modal
 # ==========================================
 st.set_page_config(page_title="Clash Intel by VICTORIOUS", page_icon="🛡️", layout="wide")
 
-# --- CUSTOM CSS FOR METRIC CARDS & HEROES ---
+# --- CUSTOM CSS FOR METRIC CARDS, FONTS & HEROES ---
 st.markdown("""
 <style>
+    @font-face {
+        font-family: 'SupercellMagic';
+        src: url('https://cdn.jsdelivr.net/gh/clashperk/coc-assets@main/fonts/Supercell-Magic.ttf') format('truetype');
+    }
+    
+    .sc-font {
+        font-family: 'SupercellMagic', sans-serif;
+        letter-spacing: 1px;
+        text-shadow: 2px 2px 0px #000;
+    }
+
     .card-grid {
         display: flex;
         flex-wrap: wrap;
@@ -19,24 +31,31 @@ st.markdown("""
         margin-bottom: 25px;
     }
     .stat-card {
-        flex: 1 1 calc(20% - 15px); /* 5 columns on desktop */
-        min-width: 130px; /* Forces wrap on mobile */
-        background-color: #1a202c;
-        border: 1px solid #2d3748;
-        border-radius: 8px;
+        flex: 1 1 calc(20% - 15px);
+        min-width: 140px;
+        background: linear-gradient(180deg, #2a3342, #1a202c);
+        border: 2px solid #4a5568;
+        border-radius: 12px;
         padding: 15px;
         text-align: center;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
         transition: transform 0.2s ease;
     }
     .stat-card:hover {
-        transform: translateY(-2px);
+        transform: translateY(-4px);
+        border-color: #718096;
+    }
+    .stat-img {
+        height: 70px;
+        object-fit: contain;
+        margin-bottom: 10px;
+        filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.6));
     }
     .stat-title {
         font-size: 0.85rem;
-        color: #a0aec0;
+        color: #cbd5e1;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-weight: 600;
         margin-bottom: 8px;
         white-space: nowrap;
         overflow: hidden;
@@ -44,23 +63,32 @@ st.markdown("""
     }
     .stat-value {
         font-size: 1.5rem;
-        font-weight: 700;
         color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
     }
     .hero-card {
-        flex: 1 1 calc(16.6% - 15px); /* Up to 6 heroes on desktop */
-        min-width: 110px; /* Tight wrap on mobile */
-        background: linear-gradient(145deg, #2a2d34, #1a1c20);
-        border: 1px solid #4a5568;
-        border-radius: 8px;
-        padding: 12px;
+        flex: 1 1 calc(16.6% - 15px);
+        min-width: 120px;
+        background: linear-gradient(180deg, #374151, #1f2937);
+        border: 2px solid #4b5563;
+        border-radius: 12px;
+        padding: 15px 10px;
         text-align: center;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
+    }
+    .hero-img {
+        height: 85px;
+        object-fit: contain;
+        margin-bottom: 8px;
+        filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.8));
     }
     .hero-name {
         font-size: 0.8rem;
         font-weight: 600;
-        color: #e2e8f0;
+        color: #f1f5f9;
         margin-bottom: 5px;
         white-space: nowrap;
         overflow: hidden;
@@ -68,18 +96,17 @@ st.markdown("""
     }
     .hero-lvl {
         font-size: 1.4rem;
-        font-weight: 800;
-        color: #fbbf24; /* Gold color for levels */
+        color: #fbbf24;
     }
     .hero-cap {
         font-size: 0.75rem;
         margin-top: 4px;
-        color: #a0aec0;
+        color: #94a3b8;
     }
     .hero-cap-max {
         font-size: 0.75rem;
         margin-top: 4px;
-        color: #48bb78; /* Green for Max */
+        color: #4ade80;
         font-weight: bold;
     }
 </style>
@@ -169,48 +196,63 @@ if app_mode == "🕵️ Player Inspector":
                 st.info(f"🔰 **Clan Detected:** {profile['clan']['name']} ({profile['clan']['tag']})")
                 st.button("Run Audit on this Clan", use_container_width=True, on_click=jump_to_clan, args=(profile['clan']['tag'],))
 
-            # --- NEW UI: ACCOUNT OVERVIEW ---
-            st.markdown("#### 🏛️ Account Overview")
-            league_name = profile.get("league", {}).get("name", "Unranked")
+            # --- DYNAMIC ASSET URLS ---
+            th_level = profile.get("townHallLevel", 1)
+            league = profile.get("league", {})
+            league_name = league.get("name", "Unranked")
+            league_icon = league.get("iconUrls", {}).get("medium", "https://raw.githubusercontent.com/clashperk/coc-assets/main/images/badges/Unranked.png")
+            th_icon = f"https://raw.githubusercontent.com/clashperk/coc-assets/main/images/townhalls/th{th_level}.png"
+            trophy_icon = "https://raw.githubusercontent.com/clashperk/coc-assets/main/images/icons/trophy.png"
+            war_star_icon = "https://raw.githubusercontent.com/clashperk/coc-assets/main/images/icons/star.png"
+            power_icon = "https://raw.githubusercontent.com/clashperk/coc-assets/main/images/icons/hero_potion.png"
+
             war_stars = profile.get('warStars', 0)
+
+            # --- NEW UI: ACCOUNT OVERVIEW ---
+            st.markdown("<h4 class='sc-font'>🏛️ Account Overview</h4>", unsafe_allow_html=True)
             
-            # Using single-line concatenation to strictly avoid markdown parsing issues
+            # Using single-line concatenation with injected image tags
             overview_html = (
                 f'<div class="card-grid">'
-                f'<div class="stat-card"><div class="stat-title">Town Hall</div><div class="stat-value">{profile.get("townHallLevel")}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">League</div><div class="stat-value">{league_name}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Trophies</div><div class="stat-value">{profile.get("trophies")}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">War Stars</div><div class="stat-value">⭐ {war_stars}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Total Hero Power</div><div class="stat-value">⚡ {hero_sum}</div></div>'
+                f'<div class="stat-card"><img src="{th_icon}" class="stat-img" alt="TH{th_level}"><div class="stat-title">Town Hall</div><div class="stat-value sc-font">{th_level}</div></div>'
+                f'<div class="stat-card"><img src="{league_icon}" class="stat-img" alt="League"><div class="stat-title">League</div><div class="stat-value sc-font" style="font-size:1.1rem;">{league_name}</div></div>'
+                f'<div class="stat-card"><img src="{trophy_icon}" class="stat-img" alt="Trophies"><div class="stat-title">Trophies</div><div class="stat-value sc-font">{profile.get("trophies")}</div></div>'
+                f'<div class="stat-card"><img src="{war_star_icon}" class="stat-img" alt="War Stars"><div class="stat-title">War Stars</div><div class="stat-value sc-font">{war_stars}</div></div>'
+                f'<div class="stat-card"><img src="{power_icon}" class="stat-img" alt="Hero Power"><div class="stat-title">Total Hero Power</div><div class="stat-value sc-font">{hero_sum}</div></div>'
                 f'</div>'
             )
             st.markdown(overview_html, unsafe_allow_html=True)
 
             # --- NEW UI: MONTHLY LEDGER ---
-            st.markdown("#### 📊 Monthly Ledger")
+            st.markdown("<h4 class='sc-font'>📊 Monthly Ledger</h4>", unsafe_allow_html=True)
             donated = profile.get("donations", 0)
             received = profile.get("donationsReceived", 0)
             ratio = round(donated / received, 2) if received > 0 else donated
             
             ledger_html = (
                 f'<div class="card-grid">'
-                f'<div class="stat-card"><div class="stat-title">Attack Wins</div><div class="stat-value">{profile.get("attackWins", 0)}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Defense Wins</div><div class="stat-value">{profile.get("defenseWins", 0)}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value">{donated}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Troops Received</div><div class="stat-value">{received}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value">{ratio}x</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{profile.get("attackWins", 0)}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Defense Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#38bdf8;">{profile.get("defenseWins", 0)}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value sc-font" style="font-size:1.8rem;">{donated}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Troops Received</div><div class="stat-value sc-font" style="font-size:1.8rem;">{received}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#fbbf24;">{ratio}x</div></div>'
                 f'</div>'
             )
             st.markdown(ledger_html, unsafe_allow_html=True)
 
             # --- NEW UI: HERO ALTAR ---
             if home_heroes:
-                st.markdown("#### 👑 Hero Altar")
+                st.markdown("<h4 class='sc-font'>👑 Hero Altar</h4>", unsafe_allow_html=True)
                 heroes_html = '<div class="card-grid">'
                 for h in home_heroes:
+                    # Dynamically encode hero name for URL (e.g. "Barbarian King" -> "Barbarian%20King")
+                    hero_img_url = f"https://raw.githubusercontent.com/clashperk/coc-assets/main/images/heroes/{urllib.parse.quote(h['Name'])}.png"
+                    
                     cap_class = "hero-cap-max" if h["IsMax"] else "hero-cap"
                     cap_text = "TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}"
-                    heroes_html += f'<div class="hero-card"><div class="hero-name">{h["Name"]}</div><div class="hero-lvl">Lvl {h["Level"]}</div><div class="{cap_class}">{cap_text}</div></div>'
+                    
+                    heroes_html += f'<div class="hero-card"><img src="{hero_img_url}" class="hero-img" alt="{h["Name"]}"><div class="hero-name">{h["Name"]}</div><div class="hero-lvl sc-font">Lvl {h["Level"]}</div><div class="{cap_class}">{cap_text}</div></div>'
+                
                 heroes_html += '</div>'
                 st.markdown(heroes_html, unsafe_allow_html=True)
 
