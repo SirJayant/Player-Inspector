@@ -1,5 +1,4 @@
 import asyncio
-import urllib.parse
 import pandas as pd
 import streamlit as st
 from clash_intel.models import process_player_inspector, process_clan_auditor, run_ping_a_donor
@@ -40,6 +39,10 @@ st.markdown("""
         text-align: center;
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
         transition: transform 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
     }
     .stat-card:hover {
         transform: translateY(-4px);
@@ -78,12 +81,6 @@ st.markdown("""
         padding: 15px 10px;
         text-align: center;
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
-    }
-    .hero-img {
-        height: 85px;
-        object-fit: contain;
-        margin-bottom: 8px;
-        filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.8));
     }
     .hero-name {
         font-size: 0.8rem;
@@ -196,33 +193,26 @@ if app_mode == "🕵️ Player Inspector":
                 st.info(f"🔰 **Clan Detected:** {profile['clan']['name']} ({profile['clan']['tag']})")
                 st.button("Run Audit on this Clan", use_container_width=True, on_click=jump_to_clan, args=(profile['clan']['tag'],))
 
-            # --- DYNAMIC ASSET URLS (ROBUST MEDIAWIKI FALLBACKS) ---
+            # --- DYNAMIC ASSET URLS ---
             th_level = profile.get("townHallLevel", 1)
             league = profile.get("league", {})
             league_name = league.get("name", "Unranked")
             
-            # API provides this directly, which is why it worked previously
+            # Keep only the League Icon as an image since the API provides it reliably
             league_icon = league.get("iconUrls", {}).get("medium", "https://clashofclans.fandom.com/wiki/Special:FilePath/Unranked_League_Icon.png")
-            
-            # Using Fandom's Special:FilePath which dynamically resolves images
-            th_icon = f"https://clashofclans.fandom.com/wiki/Special:FilePath/Town_Hall_{th_level}.png"
-            trophy_icon = "https://clashofclans.fandom.com/wiki/Special:FilePath/Trophy.png"
-            war_star_icon = "https://clashofclans.fandom.com/wiki/Special:FilePath/War_Star.png"
-            power_icon = "https://clashofclans.fandom.com/wiki/Special:FilePath/Hero_Potion.png"
-
             war_stars = profile.get('warStars', 0)
 
             # --- NEW UI: ACCOUNT OVERVIEW ---
             st.markdown("<h4 class='sc-font'>🏛️ Account Overview</h4>", unsafe_allow_html=True)
             
-            # Added onerror="this.style.display='none'" to hide broken img tags gracefully
+            # Restored Emojis for everything else
             overview_html = (
                 f'<div class="card-grid">'
-                f'<div class="stat-card"><img src="{th_icon}" class="stat-img" alt="TH{th_level}" onerror="this.style.display=\'none\'"><div class="stat-title">Town Hall</div><div class="stat-value sc-font">{th_level}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Town Hall</div><div class="stat-value sc-font">{th_level}</div></div>'
                 f'<div class="stat-card"><img src="{league_icon}" class="stat-img" alt="League" onerror="this.style.display=\'none\'"><div class="stat-title">League</div><div class="stat-value sc-font" style="font-size:1.1rem;">{league_name}</div></div>'
-                f'<div class="stat-card"><img src="{trophy_icon}" class="stat-img" alt="Trophies" onerror="this.style.display=\'none\'"><div class="stat-title">Trophies</div><div class="stat-value sc-font">{profile.get("trophies")}</div></div>'
-                f'<div class="stat-card"><img src="{war_star_icon}" class="stat-img" alt="War Stars" onerror="this.style.display=\'none\'"><div class="stat-title">War Stars</div><div class="stat-value sc-font">{war_stars}</div></div>'
-                f'<div class="stat-card"><img src="{power_icon}" class="stat-img" alt="Hero Power" onerror="this.style.display=\'none\'"><div class="stat-title">Total Hero Power</div><div class="stat-value sc-font">{hero_sum}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Trophies</div><div class="stat-value sc-font">🏆 {profile.get("trophies")}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">War Stars</div><div class="stat-value sc-font">⭐ {war_stars}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Total Hero Power</div><div class="stat-value sc-font">⚡ {hero_sum}</div></div>'
                 f'</div>'
             )
             st.markdown(overview_html, unsafe_allow_html=True)
@@ -249,14 +239,10 @@ if app_mode == "🕵️ Player Inspector":
                 st.markdown("<h4 class='sc-font'>👑 Hero Altar</h4>", unsafe_allow_html=True)
                 heroes_html = '<div class="card-grid">'
                 for h in home_heroes:
-                    # Dynamically encode hero name for Fandom Wiki (e.g. "Barbarian King" -> "Barbarian_King.png")
-                    hero_name_formatted = h['Name'].replace(' ', '_')
-                    hero_img_url = f"https://clashofclans.fandom.com/wiki/Special:FilePath/{hero_name_formatted}.png"
-                    
                     cap_class = "hero-cap-max" if h["IsMax"] else "hero-cap"
                     cap_text = "TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}"
                     
-                    heroes_html += f'<div class="hero-card"><img src="{hero_img_url}" class="hero-img" alt="{h["Name"]}" onerror="this.style.display=\'none\'"><div class="hero-name">{h["Name"]}</div><div class="hero-lvl sc-font">Lvl {h["Level"]}</div><div class="{cap_class}">{cap_text}</div></div>'
+                    heroes_html += f'<div class="hero-card"><div class="hero-name">{h["Name"]}</div><div class="hero-lvl sc-font">Lvl {h["Level"]}</div><div class="{cap_class}">{cap_text}</div></div>'
                 
                 heroes_html += '</div>'
                 st.markdown(heroes_html, unsafe_allow_html=True)
