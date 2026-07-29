@@ -15,7 +15,7 @@ st.markdown("""
 <style>
     @font-face {
         font-family: 'SupercellMagic';
-        src: url('https://cdn.jsdelivr.net/gh/clashperk/coc-assets@main/fonts/Supercell-Magic.ttf') format('truetype');
+        src: url('https://cdn.jsdelivr.net/gh/YunYouJun/coc@master/assets/fonts/Supercell-Magic_5.ttf') format('truetype');
     }
     
     .sc-font {
@@ -196,29 +196,33 @@ if app_mode == "🕵️ Player Inspector":
                 st.info(f"🔰 **Clan Detected:** {profile['clan']['name']} ({profile['clan']['tag']})")
                 st.button("Run Audit on this Clan", use_container_width=True, on_click=jump_to_clan, args=(profile['clan']['tag'],))
 
-            # --- DYNAMIC ASSET URLS ---
+            # --- DYNAMIC ASSET URLS (ROBUST MEDIAWIKI FALLBACKS) ---
             th_level = profile.get("townHallLevel", 1)
             league = profile.get("league", {})
             league_name = league.get("name", "Unranked")
-            league_icon = league.get("iconUrls", {}).get("medium", "https://raw.githubusercontent.com/clashperk/coc-assets/main/images/badges/Unranked.png")
-            th_icon = f"https://raw.githubusercontent.com/clashperk/coc-assets/main/images/townhalls/th{th_level}.png"
-            trophy_icon = "https://raw.githubusercontent.com/clashperk/coc-assets/main/images/icons/trophy.png"
-            war_star_icon = "https://raw.githubusercontent.com/clashperk/coc-assets/main/images/icons/star.png"
-            power_icon = "https://raw.githubusercontent.com/clashperk/coc-assets/main/images/icons/hero_potion.png"
+            
+            # API provides this directly, which is why it worked previously
+            league_icon = league.get("iconUrls", {}).get("medium", "https://clashofclans.fandom.com/wiki/Special:FilePath/Unranked_League_Icon.png")
+            
+            # Using Fandom's Special:FilePath which dynamically resolves images
+            th_icon = f"https://clashofclans.fandom.com/wiki/Special:FilePath/Town_Hall_{th_level}.png"
+            trophy_icon = "https://clashofclans.fandom.com/wiki/Special:FilePath/Trophy.png"
+            war_star_icon = "https://clashofclans.fandom.com/wiki/Special:FilePath/War_Star.png"
+            power_icon = "https://clashofclans.fandom.com/wiki/Special:FilePath/Hero_Potion.png"
 
             war_stars = profile.get('warStars', 0)
 
             # --- NEW UI: ACCOUNT OVERVIEW ---
             st.markdown("<h4 class='sc-font'>🏛️ Account Overview</h4>", unsafe_allow_html=True)
             
-            # Using single-line concatenation with injected image tags
+            # Added onerror="this.style.display='none'" to hide broken img tags gracefully
             overview_html = (
                 f'<div class="card-grid">'
-                f'<div class="stat-card"><img src="{th_icon}" class="stat-img" alt="TH{th_level}"><div class="stat-title">Town Hall</div><div class="stat-value sc-font">{th_level}</div></div>'
-                f'<div class="stat-card"><img src="{league_icon}" class="stat-img" alt="League"><div class="stat-title">League</div><div class="stat-value sc-font" style="font-size:1.1rem;">{league_name}</div></div>'
-                f'<div class="stat-card"><img src="{trophy_icon}" class="stat-img" alt="Trophies"><div class="stat-title">Trophies</div><div class="stat-value sc-font">{profile.get("trophies")}</div></div>'
-                f'<div class="stat-card"><img src="{war_star_icon}" class="stat-img" alt="War Stars"><div class="stat-title">War Stars</div><div class="stat-value sc-font">{war_stars}</div></div>'
-                f'<div class="stat-card"><img src="{power_icon}" class="stat-img" alt="Hero Power"><div class="stat-title">Total Hero Power</div><div class="stat-value sc-font">{hero_sum}</div></div>'
+                f'<div class="stat-card"><img src="{th_icon}" class="stat-img" alt="TH{th_level}" onerror="this.style.display=\'none\'"><div class="stat-title">Town Hall</div><div class="stat-value sc-font">{th_level}</div></div>'
+                f'<div class="stat-card"><img src="{league_icon}" class="stat-img" alt="League" onerror="this.style.display=\'none\'"><div class="stat-title">League</div><div class="stat-value sc-font" style="font-size:1.1rem;">{league_name}</div></div>'
+                f'<div class="stat-card"><img src="{trophy_icon}" class="stat-img" alt="Trophies" onerror="this.style.display=\'none\'"><div class="stat-title">Trophies</div><div class="stat-value sc-font">{profile.get("trophies")}</div></div>'
+                f'<div class="stat-card"><img src="{war_star_icon}" class="stat-img" alt="War Stars" onerror="this.style.display=\'none\'"><div class="stat-title">War Stars</div><div class="stat-value sc-font">{war_stars}</div></div>'
+                f'<div class="stat-card"><img src="{power_icon}" class="stat-img" alt="Hero Power" onerror="this.style.display=\'none\'"><div class="stat-title">Total Hero Power</div><div class="stat-value sc-font">{hero_sum}</div></div>'
                 f'</div>'
             )
             st.markdown(overview_html, unsafe_allow_html=True)
@@ -245,13 +249,14 @@ if app_mode == "🕵️ Player Inspector":
                 st.markdown("<h4 class='sc-font'>👑 Hero Altar</h4>", unsafe_allow_html=True)
                 heroes_html = '<div class="card-grid">'
                 for h in home_heroes:
-                    # Dynamically encode hero name for URL (e.g. "Barbarian King" -> "Barbarian%20King")
-                    hero_img_url = f"https://raw.githubusercontent.com/clashperk/coc-assets/main/images/heroes/{urllib.parse.quote(h['Name'])}.png"
+                    # Dynamically encode hero name for Fandom Wiki (e.g. "Barbarian King" -> "Barbarian_King.png")
+                    hero_name_formatted = h['Name'].replace(' ', '_')
+                    hero_img_url = f"https://clashofclans.fandom.com/wiki/Special:FilePath/{hero_name_formatted}.png"
                     
                     cap_class = "hero-cap-max" if h["IsMax"] else "hero-cap"
                     cap_text = "TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}"
                     
-                    heroes_html += f'<div class="hero-card"><img src="{hero_img_url}" class="hero-img" alt="{h["Name"]}"><div class="hero-name">{h["Name"]}</div><div class="hero-lvl sc-font">Lvl {h["Level"]}</div><div class="{cap_class}">{cap_text}</div></div>'
+                    heroes_html += f'<div class="hero-card"><img src="{hero_img_url}" class="hero-img" alt="{h["Name"]}" onerror="this.style.display=\'none\'"><div class="hero-name">{h["Name"]}</div><div class="hero-lvl sc-font">Lvl {h["Level"]}</div><div class="{cap_class}">{cap_text}</div></div>'
                 
                 heroes_html += '</div>'
                 st.markdown(heroes_html, unsafe_allow_html=True)
@@ -295,7 +300,7 @@ if app_mode == "🕵️ Player Inspector":
             elif not ranked_attacks and not ranked_defenses:
                 st.info("🧹 **Empty Ledger!** We couldn't find any recent Ranked or Legend league battles for this player.")
             else:
-                st.caption("🕵️ **Intel Note: Supercell’s servers have the memory span of a goldfish. This ledger only shows recent skirmishes, not your target’s lifetime history. We don’t log past attacks, so take a breather, you can't stalk what isn't there**")
+                st.caption("🕵️ **Intel Note: Supercell’s servers have the memory span of a goldfish. This ledger only shows recent skirmishes, not your target’s lifetime history. We don’t log past attacks, so take a breather, you can't stalk what isnt there**")
 
             def render_stars(star_count):
                 filled = "★" * star_count
