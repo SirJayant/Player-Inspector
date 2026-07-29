@@ -9,6 +9,82 @@ from clash_intel.ui.components import show_donation_modal
 # ==========================================
 st.set_page_config(page_title="Clash Intel by VICTORIOUS", page_icon="🛡️", layout="wide")
 
+# --- CUSTOM CSS FOR METRIC CARDS & HEROES ---
+st.markdown("""
+<style>
+    .card-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    .stat-card {
+        flex: 1 1 calc(20% - 15px); /* 5 columns on desktop */
+        min-width: 130px; /* Forces wrap on mobile */
+        background-color: #1a202c;
+        border: 1px solid #2d3748;
+        border-radius: 8px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    .stat-title {
+        font-size: 0.85rem;
+        color: #a0aec0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ffffff;
+    }
+    .hero-card {
+        flex: 1 1 calc(16.6% - 15px); /* Up to 6 heroes on desktop */
+        min-width: 110px; /* Tight wrap on mobile */
+        background: linear-gradient(145deg, #2a2d34, #1a1c20);
+        border: 1px solid #4a5568;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+    }
+    .hero-name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #e2e8f0;
+        margin-bottom: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .hero-lvl {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #fbbf24; /* Gold color for levels */
+    }
+    .hero-cap {
+        font-size: 0.75rem;
+        margin-top: 4px;
+        color: #a0aec0;
+    }
+    .hero-cap-max {
+        font-size: 0.75rem;
+        margin-top: 4px;
+        color: #48bb78; /* Green for Max */
+        font-weight: bold;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- OPEN SOURCE BYOK TOKEN HANDLER ---
 def get_api_token() -> str:
     if "COC_TOKEN" in st.secrets:
@@ -93,34 +169,92 @@ if app_mode == "🕵️ Player Inspector":
                 st.info(f"🔰 **Clan Detected:** {profile['clan']['name']} ({profile['clan']['tag']})")
                 st.button("Run Audit on this Clan", use_container_width=True, on_click=jump_to_clan, args=(profile['clan']['tag'],))
 
+            # --- NEW UI: ACCOUNT OVERVIEW ---
             st.markdown("#### 🏛️ Account Overview")
-            t1_c1, t1_c2, t1_c3, t1_c4, t1_c5 = st.columns(5)
-            t1_c1.metric("Town Hall", profile.get("townHallLevel"))
-            t1_c2.metric("League", profile.get("league", {}).get("name", "Unranked"))
-            t1_c3.metric("Trophies", profile.get("trophies"))
-            t1_c4.metric("War Stars", f"⭐ {profile.get('warStars', 0)}")
-            t1_c5.metric("Total Hero Power", f"⚡ {hero_sum}")
+            league_name = profile.get("league", {}).get("name", "Unranked")
+            war_stars = profile.get('warStars', 0)
+            
+            overview_html = f"""
+            <div class="card-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Town Hall</div>
+                    <div class="stat-value">{profile.get('townHallLevel')}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">League</div>
+                    <div class="stat-value">{league_name}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Trophies</div>
+                    <div class="stat-value">{profile.get('trophies')}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">War Stars</div>
+                    <div class="stat-value">⭐ {war_stars}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Total Hero Power</div>
+                    <div class="stat-value">⚡ {hero_sum}</div>
+                </div>
+            </div>
+            """
+            st.markdown(overview_html, unsafe_allow_html=True)
 
+            # --- NEW UI: MONTHLY LEDGER ---
             st.markdown("#### 📊 Monthly Ledger")
-            t2_c1, t2_c2, t2_c3, t2_c4, t2_c5 = st.columns(5)
-            t2_c1.metric("Attack Wins", profile.get("attackWins", 0))
-            t2_c2.metric("Defense Wins", profile.get("defenseWins", 0))
-
             donated = profile.get("donations", 0)
             received = profile.get("donationsReceived", 0)
             ratio = round(donated / received, 2) if received > 0 else donated
-            t2_c3.metric("Troops Donated", donated)
-            t2_c4.metric("Troops Received", received)
-            t2_c5.metric("Donation Ratio", f"{ratio}x")
+            
+            ledger_html = f"""
+            <div class="card-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Attack Wins</div>
+                    <div class="stat-value">{profile.get('attackWins', 0)}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Defense Wins</div>
+                    <div class="stat-value">{profile.get('defenseWins', 0)}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Troops Donated</div>
+                    <div class="stat-value">{donated}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Troops Received</div>
+                    <div class="stat-value">{received}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Donation Ratio</div>
+                    <div class="stat-value">{ratio}x</div>
+                </div>
+            </div>
+            """
+            st.markdown(ledger_html, unsafe_allow_html=True)
 
+            # --- NEW UI: HERO ALTAR ---
             if home_heroes:
                 st.markdown("#### 👑 Hero Altar")
-                h_cols = st.columns(len(home_heroes))
-                for idx, h in enumerate(home_heroes):
-                    h_cols[idx].metric(label=h["Name"], value=f"Lvl {h['Level']}", delta="TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}", delta_color="normal" if h["IsMax"] else "off")
+                heroes_html = '<div class="card-grid">'
+                for h in home_heroes:
+                    cap_class = "hero-cap-max" if h["IsMax"] else "hero-cap"
+                    cap_text = "TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}"
+                    
+                    heroes_html += f"""
+                    <div class="hero-card">
+                        <div class="hero-name">{h['Name']}</div>
+                        <div class="hero-lvl">Lvl {h['Level']}</div>
+                        <div class="{cap_class}">{cap_text}</div>
+                    </div>
+                    """
+                heroes_html += '</div>'
+                st.markdown(heroes_html, unsafe_allow_html=True)
 
             st.divider()
 
+            # ==========================================
+            #   RANKED UI REMAINS UNTOUCHED BELOW THIS
+            # ==========================================
             st.markdown("#### ⚔️ Detected Offensive Armies")
             if ranked_code and unranked_code and (ranked_code == unranked_code):
                 st.toast("Boring player alert!")
