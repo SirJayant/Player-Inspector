@@ -72,6 +72,15 @@ st.markdown("""
         justify-content: center;
         gap: 6px;
     }
+    .th-text {
+        font-size: 3.5rem;
+        line-height: 1.1;
+        font-weight: 800;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        /* text-shadow breaks with bg-clip, so we use a drop-shadow filter */
+        filter: drop-shadow(2px 3px 2px rgba(0,0,0,0.9)); 
+    }
     .hero-card {
         flex: 1 1 calc(16.6% - 15px);
         min-width: 120px;
@@ -108,6 +117,27 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# --- TOWN HALL THEME MAPPER ---
+def get_th_gradient(level):
+    try:
+        lvl = int(level)
+    except:
+        return "linear-gradient(180deg, #ffffff, #a0aec0)"
+        
+    if lvl <= 8: return "linear-gradient(180deg, #d4a373, #8b5a2b)" # Wood
+    elif lvl == 9: return "linear-gradient(180deg, #9ca3af, #1f2937)" # Black and grey
+    elif lvl == 10: return "linear-gradient(180deg, #f87171, #7f1d1d)" # Lava
+    elif lvl == 11: return "linear-gradient(180deg, #ffffff, #ea580c)" # White and fire
+    elif lvl == 12: return "linear-gradient(180deg, #93c5fd, #2563eb)" # Light blue
+    elif lvl == 13: return "linear-gradient(180deg, #cffafe, #0891b2)" # Frost blue
+    elif lvl == 14: return "linear-gradient(180deg, #86efac, #14532d)" # Green
+    elif lvl == 15: return "linear-gradient(180deg, #d8b4fe, #581c87)" # Purple
+    elif lvl == 16: return "linear-gradient(180deg, #fca5a5, #c2410c)" # Red orange
+    elif lvl == 17: return "linear-gradient(180deg, #fbbf24, #171717)" # Black gold
+    elif lvl >= 18: return "linear-gradient(180deg, #60a5fa, #111827, #6b7280)" # Glowy blue, black, grey
+    
+    return "linear-gradient(180deg, #ffffff, #a0aec0)"
 
 # --- OPEN SOURCE BYOK TOKEN HANDLER ---
 def get_api_token() -> str:
@@ -195,20 +225,20 @@ if app_mode == "🕵️ Player Inspector":
 
             # --- DYNAMIC ASSET URLS ---
             th_level = profile.get("townHallLevel", 1)
+            th_gradient = get_th_gradient(th_level)
+            
             league = profile.get("league", {})
             league_name = league.get("name", "Unranked")
-            
-            # Keep only the League Icon as an image since the API provides it reliably
             league_icon = league.get("iconUrls", {}).get("medium", "https://clashofclans.fandom.com/wiki/Special:FilePath/Unranked_League_Icon.png")
             war_stars = profile.get('warStars', 0)
 
             # --- NEW UI: ACCOUNT OVERVIEW ---
             st.markdown("<h4 class='sc-font'>🏛️ Account Overview</h4>", unsafe_allow_html=True)
             
-            # Restored Emojis for everything else
+            # Replaced the standard text TH card with the giant thematic text gradient
             overview_html = (
                 f'<div class="card-grid">'
-                f'<div class="stat-card"><div class="stat-title">Town Hall</div><div class="stat-value sc-font">{th_level}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Town Hall</div><div class="th-text sc-font" style="background: {th_gradient}; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{th_level}</div></div>'
                 f'<div class="stat-card"><img src="{league_icon}" class="stat-img" alt="League" onerror="this.style.display=\'none\'"><div class="stat-title">League</div><div class="stat-value sc-font" style="font-size:1.1rem;">{league_name}</div></div>'
                 f'<div class="stat-card"><div class="stat-title">Trophies</div><div class="stat-value sc-font">🏆 {profile.get("trophies")}</div></div>'
                 f'<div class="stat-card"><div class="stat-title">War Stars</div><div class="stat-value sc-font">⭐ {war_stars}</div></div>'
