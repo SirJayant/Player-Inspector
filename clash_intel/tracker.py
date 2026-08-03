@@ -12,8 +12,14 @@ def update_monthly_baseline():
 
     # Format tag for URL (# -> %23)
     formatted_tag = TARGET_TAG.replace("#", "%23")
-    url = f"https://api.clashofclans.com/v1/players/{formatted_tag}"
-    headers = {"Authorization": f"Bearer {token}"}
+    
+    # RoyaleAPI Proxy URL (bypasses GitHub Actions dynamic IP blocks)
+    url = f"https://cocproxy.royaleapi.dev/v1/players/{formatted_tag}"
+    
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
 
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
