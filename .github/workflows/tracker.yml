@@ -28,7 +28,7 @@ jobs:
         env:
           COC_TOKEN: ${{ secrets.COC_TOKEN }}
         run: |
-          python -m clash_intel.trackers
+          python -m clash_intel.tracker
 
       - name: Commit and Push Baseline Updates
         run: |
