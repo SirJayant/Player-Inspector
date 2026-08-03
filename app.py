@@ -2,55 +2,91 @@ import asyncio
 import pandas as pd
 import streamlit as st
 import json
-import os
+import base64
 from datetime import datetime
 from clash_intel.models import process_player_inspector, process_clan_auditor, run_ping_a_donor
 from clash_intel.ui.components import show_donation_modal
 
+# Check if PyGithub is installed
+try:
+    from github import Github
+    from github.GithubException import UnknownObjectException
+    GITHUB_AVAILABLE = True
+except ImportError:
+    GITHUB_AVAILABLE = False
+
 # ==========================================
-#         MONTHLY BASELINE LOGIC
+#         MONTHLY BASELINE LOGIC (GITHUB API)
 # ==========================================
 def get_monthly_attacks(player_tag: str, lifetime_attacks: int) -> int:
     """
-    Reads a local JSON file to check for a monthly baseline. 
-    If a new month has started (or if it's the first time running), 
-    it sets the current lifetime attacks as the new baseline.
-    Returns the attacks won this month.
+    Reads and writes a JSON file DIRECTLY to the GitHub repository.
+    This ensures the data survives Streamlit container reboots.
     """
-    filename = "attack_baselines.json"
-    
-    # Get current Year-Month string (e.g., "2026-08")
     current_month = datetime.now().strftime("%Y-%m")
     
-    # Load existing tracking data if the file exists
-    if os.path.exists(filename):
-        with open(filename, "r") as f:
-            try:
-                data = json.load(f)
-            except json.JSONDecodeError:
-                data = {}
-    else:
+    if not GITHUB_AVAILABLE:
+        st.error("🚨 PyGithub is not installed! Please add `PyGithub` to your requirements.txt.")
+        return 0
+
+    if "GH_TOKEN" not in st.secrets or "GH_REPO" not in st.secrets:
+        st.warning("⚠️ Missing GitHub Secrets! Add GH_TOKEN and GH_REPO to Streamlit secrets to enable persistent tracking.")
+        # Fallback to session state just so the app doesn't crash while you configure secrets
+        if "temp_base" not in st.session_state: st.session_state.temp_base = {}
+        if player_tag not in st.session_state.temp_base: st.session_state.temp_base[player_tag] = {}
+        if current_month not in st.session_state.temp_base[player_tag]:
+            st.session_state.temp_base[player_tag][current_month] = lifetime_attacks
+        return lifetime_attacks - st.session_state.temp_base[player_tag][current_month]
+
+    # Authenticate with GitHub
+    g = Github(st.secrets["GH_TOKEN"])
+    repo = g.get_repo(st.secrets["GH_REPO"])
+    file_path = "attack_baselines.json"
+    
+    # Try to fetch the existing file from the repo
+    try:
+        file = repo.get_contents(file_path)
+        content = base64.b64decode(file.content).decode("utf-8")
+        data = json.loads(content)
+    except UnknownObjectException:
+        # File doesn't exist yet in the repo
         data = {}
-        
-    # Ensure the player tag exists in the dictionary
+        file = None
+    except Exception as e:
+        st.error(f"Error reading GitHub repo: {e}")
+        return 0
+
     if player_tag not in data:
         data[player_tag] = {}
-        
-    # If the current month is not logged for this player, set the baseline to current lifetime attacks
+
+    # If the current month isn't logged, we need to create the baseline and push to GitHub
     if current_month not in data[player_tag]:
         data[player_tag][current_month] = lifetime_attacks
+        new_content = json.dumps(data, indent=4)
         
-        # Save the updated data back to the JSON file
-        with open(filename, "w") as f:
-            json.dump(data, f, indent=4)
+        try:
+            if file:
+                # Update existing file
+                repo.update_file(
+                    path=file_path, 
+                    message=f"Update baseline for {player_tag} - {current_month}", 
+                    content=new_content, 
+                    sha=file.sha
+                )
+            else:
+                # Create the file for the first time
+                repo.create_file(
+                    path=file_path, 
+                    message=f"Create baselines file for {player_tag} - {current_month}", 
+                    content=new_content
+                )
+        except Exception as e:
+            st.error(f"Failed to commit baseline to GitHub: {e}")
+            return 0
             
-    # Retrieve the baseline for the current month
+    # Calculate attacks won this month
     baseline = data[player_tag][current_month]
-    
-    # Calculate monthly attacks (Lifetime - Baseline)
-    monthly_attacks = lifetime_attacks - baseline
-    
-    return monthly_attacks
+    return lifetime_attacks - baseline
 
 # ==========================================
 #         PAGE CONFIG & SESSION STATE
@@ -274,7 +310,7 @@ if app_mode == "🕵️ Player Inspector":
 
             inspected_tag = profile.get("tag", "").upper().strip()
 
-            # ---> Calculate dynamic monthly attacks <---
+            # ---> Calculate dynamic monthly attacks fetching/writing via GitHub API <---
             lifetime_wins = profile.get("attackWins", 0)
             monthly_wins = get_monthly_attacks(inspected_tag, lifetime_wins)
 
