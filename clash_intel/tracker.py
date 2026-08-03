@@ -1,27 +1,32 @@
 import json
 import os
+import urllib.parse
 import requests
 
 TARGET_TAG = "#PYU0VYGL2"
 BASELINE_FILE = "baseline.json"
 
 def update_monthly_baseline():
-    token = os.getenv("COC_TOKEN")
-    if not token:
+    raw_token = os.getenv("COC_TOKEN")
+    if not raw_token:
         raise ValueError("COC_TOKEN environment variable is missing.")
 
-    # Format tag for URL (# -> %23)
-    formatted_tag = TARGET_TAG.replace("#", "%23")
+    # Strip newlines, spaces, or tabs accidentally pasted into GitHub Secrets
+    token = raw_token.strip()
+
+    # URL-encode tag properly (#PYU0VYGL2 -> %23PYU0VYGL2)
+    encoded_tag = urllib.parse.quote(TARGET_TAG)
     
-    # RoyaleAPI Proxy URL (bypasses GitHub Actions dynamic IP blocks)
-    url = f"https://cocproxy.royaleapi.dev/v1/players/{formatted_tag}"
+    # RoyaleAPI Proxy URL
+    url = f"https://cocproxy.royaleapi.dev/v1/players/{encoded_tag}"
     
     headers = {
         "Authorization": f"Bearer {token}",
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "User-Agent": "ClashIntelTracker/1.0"
     }
 
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=15)
     if response.status_code != 200:
         raise Exception(f"Failed to fetch profile ({response.status_code}): {response.text}")
 
@@ -42,7 +47,7 @@ def update_monthly_baseline():
     with open(BASELINE_FILE, "w") as f:
         json.dump(payload, f, indent=4)
 
-    print(f"Updated baseline for {TARGET_TAG}: {conqueror_value} lifetime attacks.")
+    print(f"Successfully updated baseline for {TARGET_TAG}: {conqueror_value} lifetime attacks.")
 
 if __name__ == "__main__":
     update_monthly_baseline()
