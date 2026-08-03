@@ -1,8 +1,56 @@
 import asyncio
 import pandas as pd
 import streamlit as st
+import json
+import os
+from datetime import datetime
 from clash_intel.models import process_player_inspector, process_clan_auditor, run_ping_a_donor
 from clash_intel.ui.components import show_donation_modal
+
+# ==========================================
+#         MONTHLY BASELINE LOGIC
+# ==========================================
+def get_monthly_attacks(player_tag: str, lifetime_attacks: int) -> int:
+    """
+    Reads a local JSON file to check for a monthly baseline. 
+    If a new month has started (or if it's the first time running), 
+    it sets the current lifetime attacks as the new baseline.
+    Returns the attacks won this month.
+    """
+    filename = "attack_baselines.json"
+    
+    # Get current Year-Month string (e.g., "2026-08")
+    current_month = datetime.now().strftime("%Y-%m")
+    
+    # Load existing tracking data if the file exists
+    if os.path.exists(filename):
+        with open(filename, "r") as f:
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                data = {}
+    else:
+        data = {}
+        
+    # Ensure the player tag exists in the dictionary
+    if player_tag not in data:
+        data[player_tag] = {}
+        
+    # If the current month is not logged for this player, set the baseline to current lifetime attacks
+    if current_month not in data[player_tag]:
+        data[player_tag][current_month] = lifetime_attacks
+        
+        # Save the updated data back to the JSON file
+        with open(filename, "w") as f:
+            json.dump(data, f, indent=4)
+            
+    # Retrieve the baseline for the current month
+    baseline = data[player_tag][current_month]
+    
+    # Calculate monthly attacks (Lifetime - Baseline)
+    monthly_attacks = lifetime_attacks - baseline
+    
+    return monthly_attacks
 
 # ==========================================
 #         PAGE CONFIG & SESSION STATE
@@ -226,14 +274,17 @@ if app_mode == "🕵️ Player Inspector":
 
             inspected_tag = profile.get("tag", "").upper().strip()
 
+            # ---> Calculate dynamic monthly attacks <---
+            lifetime_wins = profile.get("attackWins", 0)
+            monthly_wins = get_monthly_attacks(inspected_tag, lifetime_wins)
+
             if inspected_tag == MY_TAG and conqueror_stats:
-                conqueror_gained = conqueror_stats.get("monthly_gained", 0)
                 conqueror_total = conqueror_stats.get("total", 0)
 
                 ledger_html = (
                     f'<div class="card-grid">'
-                    f'<div class="stat-card"><div class="stat-title">Ranked Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{profile.get("attackWins", 0)}</div></div>'
-                    f'<div class="stat-card"><div class="stat-title">Attacks Won<br>this month</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#facc15;">+{conqueror_gained:,} ⚔️</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Lifetime Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{lifetime_wins}</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Attacks Won<br>this month</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#facc15;">+{monthly_wins} ⚔️</div></div>'
                     f'<div class="stat-card"><div class="stat-title">Lifetime Battles Won</div><div class="stat-value sc-font" style="font-size:1.5rem; color:#e2e8f0;">{conqueror_total:,}</div></div>'
                     f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value sc-font" style="font-size:1.8rem;">{donated:,}</div></div>'
                     f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#fbbf24;">{ratio}x</div></div>'
@@ -242,7 +293,8 @@ if app_mode == "🕵️ Player Inspector":
             else:
                 ledger_html = (
                     f'<div class="card-grid">'
-                    f'<div class="stat-card"><div class="stat-title">Ranked Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{profile.get("attackWins", 0)}</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Lifetime Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{lifetime_wins}</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Attacks Won<br>this month</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#facc15;">+{monthly_wins} ⚔️</div></div>'
                     f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value sc-font" style="font-size:1.8rem;">{donated:,}</div></div>'
                     f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#fbbf24;">{ratio}x</div></div>'
                     f'</div>'
