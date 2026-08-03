@@ -1,36 +1,38 @@
-name: Daily Conqueror Tracker
+name: Monthly Baseline Tracker
 
 on:
   schedule:
-    # Runs daily at 00:00 UTC
-    - cron: '0 0 * * *'
-  workflow_dispatch: # Enables manual run button in GitHub UI
-
-permissions:
-  contents: write # Needed to commit state changes back to repo
+    # Runs at 00:00 UTC on the 1st day of every month
+    - cron: '0 0 1 * *'
+  workflow_dispatch: # Allows manual trigger testing from GitHub Actions UI
 
 jobs:
-  update-tracker:
+  update-baseline:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install Dependencies
-        run: pip install requests
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
 
-      - name: Run Tracker Script
+      - name: Run Monthly Tracker
         env:
           COC_TOKEN: ${{ secrets.COC_TOKEN }}
-        run: python tracker.py
+        run: |
+          python -m clash_intel.trackers
 
-      - name: Auto-commit updated statistics
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chrono: auto-update conqueror attack ledger"
-          file_pattern: "conqueror_data.json README.md"
+      - name: Commit and Push Baseline Updates
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add baseline.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "auto: update monthly conqueror baseline for #PYU0VYGL2" && git push)
