@@ -219,7 +219,7 @@ if app_mode == "🕵️ Player Inspector":
             ledger_html = (
                 f'<div class="card-grid">'
                 f'<div class="stat-card"><div class="stat-title">Ranked Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{profile.get("attackWins", 0)}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Total Attacks(Battle+Ranked)</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#facc15;">+{conqueror_gained:,} ⚔️</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Attacks Won<br>this month</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#facc15;">+{conqueror_gained:,} ⚔️</div></div>'
                 f'<div class="stat-card"><div class="stat-title">Lifetime Battles Won</div><div class="stat-value sc-font" style="font-size:1.5rem; color:#e2e8f0;">{conqueror_total:,}</div></div>'
                 f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value sc-font" style="font-size:1.8rem;">{donated:,}</div></div>'
                 f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#fbbf24;">{ratio}x</div></div>'
