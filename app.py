@@ -30,7 +30,7 @@ st.markdown("""
         margin-bottom: 25px;
     }
     .stat-card {
-        flex: 1 1 calc(20% - 15px);
+        flex: 1 1 calc(18% - 15px);
         min-width: 140px;
         background: linear-gradient(180deg, #2a3342, #1a202c);
         border: 2px solid #4a5568;
@@ -109,7 +109,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- OPEN SOURCE BYOK TOKEN HANDLER ---
 def get_api_token() -> str:
     if "COC_TOKEN" in st.secrets:
         return st.secrets["COC_TOKEN"]
@@ -122,7 +121,6 @@ if not COC_TOKEN:
     st.info("👋 **Welcome to Clash Intel by VICTORIOUS!**")
     st.markdown("To use this open-source dashboard safely without central server risks, enter your own Supercell Developer API Token in the sidebar.")
     st.stop()
-# --------------------------------------
 
 if "app_mode" not in st.session_state: st.session_state.app_mode = "🕵️ Player Inspector"
 if "target_player_tag" not in st.session_state: st.session_state.target_player_tag = ""
@@ -148,9 +146,6 @@ def get_name_tag_dict(df):
         return {f"{row['Name']} ({row['Tag']})": row["Tag"] for _, row in df.iterrows()}
     return {row["Tag"]: row["Tag"] for _, row in df.iterrows()}
 
-# ==========================================
-#         GUI RENDERER (STREAMLIT)
-# ==========================================
 st.title("🛡️ Clash Intel by VICTORIOUS")
 
 with st.sidebar:
@@ -182,7 +177,7 @@ if app_mode == "🕵️ Player Inspector":
             st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN))
 
     if st.session_state.scanned_player:
-        profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, error = st.session_state.scanned_player
+        profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, conqueror_stats, error = st.session_state.scanned_player
 
         if error:
             st.error(error)
@@ -193,19 +188,14 @@ if app_mode == "🕵️ Player Inspector":
                 st.info(f"🔰 **Clan Detected:** {profile['clan']['name']} ({profile['clan']['tag']})")
                 st.button("Run Audit on this Clan", use_container_width=True, on_click=jump_to_clan, args=(profile['clan']['tag'],))
 
-            # --- DYNAMIC ASSET URLS ---
             th_level = profile.get("townHallLevel", 1)
             league = profile.get("league", {})
             league_name = league.get("name", "Unranked")
-            
-            # Keep only the League Icon as an image since the API provides it reliably
             league_icon = league.get("iconUrls", {}).get("medium", "https://clashofclans.fandom.com/wiki/Special:FilePath/Unranked_League_Icon.png")
             war_stars = profile.get('warStars', 0)
 
-            # --- NEW UI: ACCOUNT OVERVIEW ---
             st.markdown("<h4 class='sc-font'>🏛️ Account Overview</h4>", unsafe_allow_html=True)
             
-            # Restored Emojis for everything else, merged Town Hall into one massive block
             overview_html = (
                 f'<div class="card-grid">'
                 f'<div class="stat-card"><div class="stat-value sc-font" style="text-align: center; flex-wrap: wrap;">TOWN HALL {th_level}</div></div>'
@@ -217,45 +207,42 @@ if app_mode == "🕵️ Player Inspector":
             )
             st.markdown(overview_html, unsafe_allow_html=True)
 
-            # --- NEW UI: MONTHLY LEDGER ---
+            # --- MONTHLY LEDGER WITH CONQUEROR TRACKING ---
             st.markdown("<h4 class='sc-font'>📊 Monthly Ledger</h4>", unsafe_allow_html=True)
             donated = profile.get("donations", 0)
             received = profile.get("donationsReceived", 0)
             ratio = round(donated / received, 2) if received > 0 else donated
             
+            conqueror_gained = conqueror_stats.get("monthly_gained", 0) if conqueror_stats else 0
+            conqueror_total = conqueror_stats.get("total", 0) if conqueror_stats else 0
+
             ledger_html = (
                 f'<div class="card-grid">'
-                f'<div class="stat-card"><div class="stat-title">Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{profile.get("attackWins", 0)}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Defense Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#38bdf8;">{profile.get("defenseWins", 0)}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value sc-font" style="font-size:1.8rem;">{donated}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Troops Received</div><div class="stat-value sc-font" style="font-size:1.8rem;">{received}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Season Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{profile.get("attackWins", 0)}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Monthly Attacks (Conqueror)</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#facc15;">+{conqueror_gained:,} ⚔️</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Lifetime Battles Won</div><div class="stat-value sc-font" style="font-size:1.5rem; color:#e2e8f0;">{conqueror_total:,}</div></div>'
+                f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value sc-font" style="font-size:1.8rem;">{donated:,}</div></div>'
                 f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#fbbf24;">{ratio}x</div></div>'
                 f'</div>'
             )
             st.markdown(ledger_html, unsafe_allow_html=True)
 
-            # --- NEW UI: HERO ALTAR ---
             if home_heroes:
                 st.markdown("<h4 class='sc-font'>👑 Hero Altar</h4>", unsafe_allow_html=True)
                 heroes_html = '<div class="card-grid">'
                 for h in home_heroes:
                     cap_class = "hero-cap-max" if h["IsMax"] else "hero-cap"
                     cap_text = "TH MAX!" if h["IsMax"] else f"Cap: {h['TH_Max']}"
-                    
                     heroes_html += f'<div class="hero-card"><div class="hero-name">{h["Name"]}</div><div class="hero-lvl sc-font">Lvl {h["Level"]}</div><div class="{cap_class}">{cap_text}</div></div>'
-                
                 heroes_html += '</div>'
                 st.markdown(heroes_html, unsafe_allow_html=True)
 
             st.divider()
 
-            # ==========================================
-            #   RANKED UI REMAINS UNTOUCHED BELOW THIS
-            # ==========================================
             st.markdown("#### ⚔️ Detected Offensive Armies")
             if ranked_code and unranked_code and (ranked_code == unranked_code):
                 st.toast("Boring player alert!")
-                st.info("😏 **Note:** This player runs the exact same strategy in Ranked matches and casual multiplayer. Consistency or lack of creativity? You decide, but this player doesn't farm efficiently for sure.")
+                st.info("😏 **Note:** This player runs the exact same strategy in Ranked matches and casual multiplayer.")
 
             arm_col1, arm_col2 = st.columns(2)
             with arm_col1:
@@ -276,17 +263,16 @@ if app_mode == "🕵️ Player Inspector":
 
             st.divider()
 
-            # --- CUSTOM BATTLE LOG UI ---
             st.markdown(f"### 🛡️ Battle Log: {profile.get('name')} | Total: {profile.get('trophies')} 🏆")
 
             if is_maintenance:
-                st.info("🧹 **Server Scrub!** The Supercell goblins recently wiped the battle logs (usually due to a maintenance break). We gotta wait for this player to drop some troops before we can steal their intel!")
+                st.info("🧹 Server scrub! Recent battle logs were cleared.")
             elif has_only_old_logs:
-                st.warning("⏳ **Outdated Intel!** This player has not taken participation in the new tournament yet. The logs we found are from before the Monday morning reset (10:30 AM IST). We are only seeing old ghosts!")
+                st.warning("⏳ Outdated Intel! No battles found after the last reset.")
             elif not ranked_attacks and not ranked_defenses:
-                st.info("🧹 **Empty Ledger!** We couldn't find any recent Ranked or Legend league battles for this player.")
+                st.info("🧹 Empty Ledger! Couldn't find recent Ranked battles.")
             else:
-                st.caption("🕵️ **Intel Note: Supercell’s servers have the memory span of a goldfish. This ledger only shows recent skirmishes, not your target’s lifetime history. We don’t log past attacks, so take a breather, you can't stalk what isnt there**")
+                st.caption("🕵️ Intel Note: Showing recent skirmishes from Supercell logs.")
 
             def render_stars(star_count):
                 filled = "★" * star_count
@@ -296,27 +282,15 @@ if app_mode == "🕵️ Player Inspector":
             def get_row_style(is_attack, stars):
                 gold_bg = "linear-gradient(to right, #f4d068, #e8a838)"
                 gold_border = "#c98c1c"
-                
                 grey_bg = "linear-gradient(to right, #e0e0e0, #b8b8b8)"
                 grey_border = "#9e9e9e"
-                
                 red_bg = "linear-gradient(to right, #f4a298, #e36a6a)"
                 red_border = "#b74b4b"
 
                 if is_attack:
-                    if stars == 3:
-                        bg, border = gold_bg, gold_border
-                    elif stars > 0:
-                        bg, border = grey_bg, grey_border
-                    else:
-                        bg, border = red_bg, red_border
+                    bg, border = (gold_bg, gold_border) if stars == 3 else ((grey_bg, grey_border) if stars > 0 else (red_bg, red_border))
                 else:
-                    if stars == 3:
-                        bg, border = red_bg, red_border
-                    elif stars > 0:
-                        bg, border = grey_bg, grey_border
-                    else:
-                        bg, border = gold_bg, gold_border
+                    bg, border = (red_bg, red_border) if stars == 3 else ((grey_bg, grey_border) if stars > 0 else (gold_bg, gold_border))
                 
                 return f"background: {bg}; color: black; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; border: 1px solid {border}; font-family: sans-serif; font-size: 0.9em;"
 
@@ -336,7 +310,6 @@ if app_mode == "🕵️ Player Inspector":
                 for atk in ranked_attacks:
                     row_style = get_row_style(is_attack=True, stars=atk['Stars'])
                     link_btn = get_link_button(atk.get('Army Link'))
-                    
                     atk_html += f"""
                     <div style="{row_style}">
                         <div title="{atk['Name']}" style="font-weight: bold; flex: 1 1 auto; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{atk['Name']}</div>
@@ -345,10 +318,9 @@ if app_mode == "🕵️ Player Inspector":
                         <div style="flex: 0 0 auto; white-space: nowrap; text-align: right;">{link_btn}</div>
                     </div>
                     """
-                if atk_html:
-                    st.markdown(atk_html, unsafe_allow_html=True)
+                if atk_html: st.markdown(atk_html, unsafe_allow_html=True)
                 if not ranked_attacks and not is_maintenance and not has_only_old_logs:
-                    st.info("No recent attacks found. Are they slacking? Or.... they attacked so early the server forgot? Check trophies above, thankfully we have that info accurate.")
+                    st.info("No recent attacks found.")
 
             with log_col2:
                 st.markdown(f"**Defenses** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **+{total_def_trophies} 🏆**")
@@ -356,7 +328,6 @@ if app_mode == "🕵️ Player Inspector":
                 for dfns in ranked_defenses:
                     row_style = get_row_style(is_attack=False, stars=dfns['Stars'])
                     link_btn = get_link_button(dfns.get('Army Link'))
-                    
                     def_html += f"""
                     <div style="{row_style}">
                         <div title="{dfns['Name']}" style="font-weight: bold; flex: 1 1 auto; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{dfns['Name']}</div>
@@ -365,14 +336,12 @@ if app_mode == "🕵️ Player Inspector":
                         <div style="flex: 0 0 auto; white-space: nowrap; text-align: right;">{link_btn}</div>
                     </div>
                     """
-                if def_html:
-                    st.markdown(def_html, unsafe_allow_html=True)
+                if def_html: st.markdown(def_html, unsafe_allow_html=True)
                 if not ranked_defenses and not is_maintenance and not has_only_old_logs:
-                    st.info("No recent defenses found. Flying under the radar!")
+                    st.info("No recent defenses found.")
 
             st.divider()
 
-            # Symmetrical Inspectors Row below Battle Logs
             inv_col1, inv_col2 = st.columns(2)
 
             with inv_col1:
@@ -380,24 +349,18 @@ if app_mode == "🕵️ Player Inspector":
                     st.markdown("##### 🔎 Investigate Opponent")
                     df_attacks = pd.DataFrame(ranked_attacks)
                     attacker_dict = get_name_tag_dict(df_attacks)
-                    
                     c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
-                    with c1:
-                        target_def_key = st.selectbox("Select defender to inspect:", list(attacker_dict.keys()), key="sel_atk")
-                    with c2:
-                        st.button("Inspect Profile", on_click=jump_to_player, args=(attacker_dict[target_def_key],), key="btn_atk", use_container_width=True)
+                    with c1: target_def_key = st.selectbox("Select defender to inspect:", list(attacker_dict.keys()), key="sel_atk")
+                    with c2: st.button("Inspect Profile", on_click=jump_to_player, args=(attacker_dict[target_def_key],), key="btn_atk", use_container_width=True)
 
             with inv_col2:
                 if ranked_defenses:
                     st.markdown("##### 🔎 Investigate Attacker")
                     df_defenses = pd.DataFrame(ranked_defenses)
                     defender_dict = get_name_tag_dict(df_defenses)
-                    
                     c3, c4 = st.columns([3, 1], vertical_alignment="bottom")
-                    with c3:
-                        target_opp_key = st.selectbox("Select attacker to inspect:", list(defender_dict.keys()), key="sel_def")
-                    with c4:
-                        st.button("Inspect Profile", on_click=jump_to_player, args=(defender_dict[target_opp_key],), key="btn_def", use_container_width=True)
+                    with c3: target_opp_key = st.selectbox("Select attacker to inspect:", list(defender_dict.keys()), key="sel_def")
+                    with c4: st.button("Inspect Profile", on_click=jump_to_player, args=(defender_dict[target_opp_key],), key="btn_def", use_container_width=True)
 
             st.divider()
 
@@ -475,6 +438,6 @@ elif app_mode == "🏰 Clan & Raid Auditor":
                                 st.success(f"Found {len(df_donors)} members who can donate your requested {unit_name}!")
                                 st.dataframe(df_donors, use_container_width=True, hide_index=True)
                             else:
-                                st.warning(f"Nobody in the clan can donate that level of {unit_name}. Time to recruit better players.")
+                                st.warning(f"Nobody in the clan can donate that level of {unit_name}.")
                     else:
                         st.error("Please enter a valid unit name.")
