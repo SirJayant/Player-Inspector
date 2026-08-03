@@ -3,6 +3,8 @@ import collections
 import urllib.parse
 import re
 import math
+import json
+import os
 import aiohttp
 import pandas as pd
 from datetime import datetime, timezone, timedelta
@@ -24,15 +26,13 @@ def get_last_tournament_start_utc():
         hour=5, minute=0, second=0, microsecond=0
     )
     
-    # If today is Monday but we haven't hit 10:30 AM IST yet, the tournament hasn't ended.
-    # Therefore, the "start" of the active tournament was actually the previous week.
     if now < this_monday_start:
         return this_monday_start - timedelta(days=7)
         
     return this_monday_start
 
 def parse_coc_time(time_str: str):
-    """Parses Supercell API timestamp '20260722T103543.000Z' into timezone-aware UTC datetime."""
+    """Parses Supercell API timestamp into timezone-aware UTC datetime."""
     try:
         return datetime.strptime(time_str, "%Y%m%dT%H%M%S.%fZ").replace(tzinfo=timezone.utc)
     except ValueError:
@@ -110,7 +110,29 @@ async def process_player_inspector(tag, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     async with aiohttp.ClientSession() as session:
         profile_data, error = await fetch_api(session, f"players/{format_tag(tag)}", headers)
-        if error: return None, None, None, None, None, None, None, None, False, False, error
+        if error: return None, None, None, None, None, None, None, None, False, False, None, error
+
+        # --- CONQUEROR ACHIEVEMENT TRACKING ---
+        conqueror_total = 0
+        for ach in profile_data.get("achievements", []):
+            if ach.get("name") == "Conqueror":
+                conqueror_total = ach.get("value", 0)
+                break
+
+        baseline_val = conqueror_total
+        if os.path.exists("conqueror_data.json"):
+            try:
+                with open("conqueror_data.json", "r", encoding="utf-8") as f:
+                    tracker_data = json.load(f)
+                    baseline_val = tracker_data.get("baseline_value", conqueror_total)
+            except Exception:
+                pass
+
+        conqueror_stats = {
+            "total": conqueror_total,
+            "baseline": baseline_val,
+            "monthly_gained": max(0, conqueror_total - baseline_val)
+        }
 
         th_level = profile_data.get("townHallLevel", 1)
 
@@ -165,23 +187,20 @@ async def process_player_inspector(tag, token):
             for item in reversed(battle_log["items"]):
                 if item.get("battleType") in ["ranked", "legend"]:
                     
-                    # Skip "ghost" battles where API returns null for opponent identifiers
                     if item.get("opponentName") is None or item.get("opponentPlayerTag") is None:
                         continue
                     
-                    # Intercept and block old tournament battles using the correct JSON key
                     battle_time_str = item.get("battleTimestamp")
                     if battle_time_str:
                         battle_time = parse_coc_time(battle_time_str)
                         if battle_time < tournament_start_utc:
                             old_logs_found += 1
-                            continue # Skip processing this battle
+                            continue
                             
                     code = item.get("armyShareCode")
                     stars = item.get("stars", 0)
                     destruction = item.get("destructionPercentage", 0)
                     
-                    # Compute trophies
                     t_a, t_d = calculate_trophies(stars, destruction)
                     is_attack = item.get("attack", True)
 
@@ -201,11 +220,10 @@ async def process_player_inspector(tag, token):
                     else:
                         ranked_defenses.append(record)
                         
-            # If we found logs, but they were all completely filtered out due to being old
             if old_logs_found > 0 and len(ranked_attacks) == 0 and len(ranked_defenses) == 0:
                 has_only_old_logs = True
 
-        return profile_data, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, None
+        return profile_data, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, conqueror_stats, None
 
 async def process_clan_auditor(tag, input_type, token):
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
