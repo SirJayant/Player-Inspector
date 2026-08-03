@@ -1,0 +1,44 @@
+name: Monthly Baseline Tracker
+
+on:
+  schedule:
+    # Runs automatically at 00:00 UTC on the 1st of every month
+    - cron: '0 0 1 * *'
+  workflow_dispatch: # Allows manual trigger testing anytime from Actions tab
+
+jobs:
+  update-baseline:
+    runs-on: ubuntu-latest
+
+    # REQUIRED: Gives GitHub Actions permission to commit and push changes back to your repo
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run Monthly Tracker Script
+        env:
+          COC_TOKEN: ${{ secrets.COC_TOKEN }}
+        run: |
+          python -m clash_intel.tracker
+
+      - name: Commit and Push Baseline Updates
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add baseline.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "auto: update monthly conqueror baseline" && git push)
