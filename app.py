@@ -177,7 +177,13 @@ if app_mode == "🕵️ Player Inspector":
             st.session_state.scanned_player = asyncio.run(process_player_inspector(target_tag, COC_TOKEN))
 
     if st.session_state.scanned_player:
-        profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, conqueror_stats, error = st.session_state.scanned_player
+        if isinstance(st.session_state.scanned_player, (list, tuple)) and len(st.session_state.scanned_player) == 12:
+            profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, conqueror_stats, error = st.session_state.scanned_player
+        elif isinstance(st.session_state.scanned_player, (list, tuple)) and len(st.session_state.scanned_player) == 11:
+            profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, error = st.session_state.scanned_player
+            conqueror_stats = None
+        else:
+            profile, eq_df, ranked_code, unranked_code, home_heroes, hero_sum, ranked_defenses, ranked_attacks, is_maintenance, has_only_old_logs, conqueror_stats, error = (None,) * 12
 
         if error:
             st.error(error)
@@ -191,7 +197,15 @@ if app_mode == "🕵️ Player Inspector":
             th_level = profile.get("townHallLevel", 1)
             league = profile.get("leagueTier", {})
             league_name = league.get("name", "Unranked")
-            league_icon = league.get("iconUrls", {}).get("medium", "https://clashofclans.fandom.com/wiki/Special:FilePath/Unranked_League_Icon.png")
+            
+            # Fetch small icon URL from leagueTier
+            icon_urls = league.get("iconUrls", {}) if isinstance(league, dict) else {}
+            league_icon = (
+                icon_urls.get("small")
+                or icon_urls.get("large")
+                or icon_urls.get("medium")
+                or "https://clashofclans.fandom.com/wiki/Special:FilePath/Unranked_League_Icon.png"
+            )
             war_stars = profile.get('warStars', 0)
 
             st.markdown("<h4 class='sc-font'>🏛️ Account Overview</h4>", unsafe_allow_html=True)
