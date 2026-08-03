@@ -9,6 +9,9 @@ from clash_intel.ui.components import show_donation_modal
 # ==========================================
 st.set_page_config(page_title="Clash Intel by VICTORIOUS", page_icon="🛡️", layout="wide")
 
+# Personal player tag setup (defaults to #PYU0VYGL2)
+MY_TAG = st.secrets.get("MY_TAG", "#PYU0VYGL2").upper().strip()
+
 # --- CUSTOM CSS FOR METRIC CARDS, FONTS & HEROES ---
 st.markdown("""
 <style>
@@ -198,14 +201,8 @@ if app_mode == "🕵️ Player Inspector":
             league = profile.get("leagueTier", {})
             league_name = league.get("name", "Unranked")
             
-            # Fetch small icon URL from leagueTier
             icon_urls = league.get("iconUrls", {}) if isinstance(league, dict) else {}
-            league_icon = (
-                icon_urls.get("small")
-                or icon_urls.get("large")
-                or icon_urls.get("medium")
-                or "https://clashofclans.fandom.com/wiki/Special:FilePath/Unranked_League_Icon.png"
-            )
+            league_icon = icon_urls.get("small") or "https://clashofclans.fandom.com/wiki/Special:FilePath/Unranked_League_Icon.png"
             war_stars = profile.get('warStars', 0)
 
             st.markdown("<h4 class='sc-font'>🏛️ Account Overview</h4>", unsafe_allow_html=True)
@@ -221,24 +218,35 @@ if app_mode == "🕵️ Player Inspector":
             )
             st.markdown(overview_html, unsafe_allow_html=True)
 
-            # --- MONTHLY LEDGER WITH CONQUEROR TRACKING ---
+            # --- MONTHLY LEDGER (PERSONAL TAG FILTERED) ---
             st.markdown("<h4 class='sc-font'>📊 Monthly Ledger</h4>", unsafe_allow_html=True)
             donated = profile.get("donations", 0)
             received = profile.get("donationsReceived", 0)
             ratio = round(donated / received, 2) if received > 0 else donated
-            
-            conqueror_gained = conqueror_stats.get("monthly_gained", 0) if conqueror_stats else 0
-            conqueror_total = conqueror_stats.get("total", 0) if conqueror_stats else 0
 
-            ledger_html = (
-                f'<div class="card-grid">'
-                f'<div class="stat-card"><div class="stat-title">Ranked Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{profile.get("attackWins", 0)}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Attacks Won<br>this month</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#facc15;">+{conqueror_gained:,} ⚔️</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Lifetime Battles Won</div><div class="stat-value sc-font" style="font-size:1.5rem; color:#e2e8f0;">{conqueror_total:,}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value sc-font" style="font-size:1.8rem;">{donated:,}</div></div>'
-                f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#fbbf24;">{ratio}x</div></div>'
-                f'</div>'
-            )
+            inspected_tag = profile.get("tag", "").upper().strip()
+
+            if inspected_tag == MY_TAG and conqueror_stats:
+                conqueror_gained = conqueror_stats.get("monthly_gained", 0)
+                conqueror_total = conqueror_stats.get("total", 0)
+
+                ledger_html = (
+                    f'<div class="card-grid">'
+                    f'<div class="stat-card"><div class="stat-title">Ranked Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{profile.get("attackWins", 0)}</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Attacks Won<br>this month</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#facc15;">+{conqueror_gained:,} ⚔️</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Lifetime Battles Won</div><div class="stat-value sc-font" style="font-size:1.5rem; color:#e2e8f0;">{conqueror_total:,}</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value sc-font" style="font-size:1.8rem;">{donated:,}</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#fbbf24;">{ratio}x</div></div>'
+                    f'</div>'
+                )
+            else:
+                ledger_html = (
+                    f'<div class="card-grid">'
+                    f'<div class="stat-card"><div class="stat-title">Ranked Attack Wins</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#4ade80;">{profile.get("attackWins", 0)}</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Troops Donated</div><div class="stat-value sc-font" style="font-size:1.8rem;">{donated:,}</div></div>'
+                    f'<div class="stat-card"><div class="stat-title">Donation Ratio</div><div class="stat-value sc-font" style="font-size:1.8rem; color:#fbbf24;">{ratio}x</div></div>'
+                    f'</div>'
+                )
             st.markdown(ledger_html, unsafe_allow_html=True)
 
             if home_heroes:
@@ -383,7 +391,7 @@ if app_mode == "🕵️ Player Inspector":
                 st.dataframe(eq_df, use_container_width=True, hide_index=True)
 
 # ------------------------------------------
-# MODULE 2: CLAN & Raid Auditor
+# MODULE 2: CLAN & RAID AUDITOR
 # ------------------------------------------
 elif app_mode == "🏰 Clan & Raid Auditor":
     st.subheader("🏰 Clan & Raid Auditor")
